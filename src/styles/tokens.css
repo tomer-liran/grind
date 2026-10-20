@@ -1,0 +1,146 @@
+/* ── PREMIUM FITNESS TOKENS ─────────────────────────────────── */
+:root {
+  /* Backgrounds */
+  --bg: #0d1117;
+  --bg2: #131922;
+  --surface: #171d26;
+  --surface2: #1d2430;
+  --reel-bg: #10161f;
+
+  /* Borders */
+  --border: #2b3442;
+  --border-gold: #5a4d39;
+
+  /* Warm neutrals */
+  --gold: #f1e4c8;
+  --gold2: #c9b085;
+  --gold3: #5d4f3c;
+  --gold-glow: rgba(201, 176, 133, 0.18);
+
+  /* Active accent */
+  --electric: #6ce7d0;
+  --electric2: #49bca7;
+  --electric3: #1c6558;
+  --electric-dim: #153e37;
+  --electric-glow: rgba(108, 231, 208, 0.22);
+  --electric-wide: rgba(108, 231, 208, 0.08);
+
+  /* Text / neutrals */
+  --silver: #d7dde6;
+  --silver2: #8f98a6;
+
+  --text: #f7f8fb;
+  --text2: #c0c8d3;
+  --muted: #788292;
+  --muted2: #2a323d;
+
+  /* Status */
+  --crimson: #6f2328;
+  --crimson-bright: #ff8a8f;
+  --neon: #6ce7d0;
+
+  /* Typography */
+  --font-display:
+    "Avenir Next", Avenir, "Segoe UI Variable Display", "Segoe UI", sans-serif;
+  --font-ui:
+    Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: var(--font-ui);
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  /* Sizes */
+  --radius: 16px;
+  --radius-card: 26px;
+  --app-max-width: 38rem;
+  --app-height: 100vh;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --content-pad-inline: clamp(14px, 4.5vw, 24px);
+  --content-pad-top: clamp(14px, 4vw, 24px);
+  --content-pad-bottom: clamp(26px, 8vw, 56px);
+  --screen-pad-left: calc(var(--content-pad-inline) + var(--safe-left));
+  --screen-pad-right: calc(var(--content-pad-inline) + var(--safe-right));
+  --screen-pad-top: calc(var(--content-pad-top) + var(--safe-top));
+  --screen-pad-bottom: calc(var(--content-pad-bottom) + var(--safe-bottom));
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-xs: var(--space-8);
+  --space-sm: var(--space-12);
+  --space-md: var(--space-16);
+  --space-lg: var(--space-24);
+  --space-xl: var(--space-32);
+  --space-2xl: clamp(30px, 8.5vw, 40px);
+  --touch-target: 44px;
+  /* Typography scale — fluid, phone-first t-shirt tokens */
+  --font-size-xs: clamp(0.75rem, 2.2vw, 0.8rem);
+  --font-size-sm: clamp(0.78rem, 2.9vw, 0.84rem);
+  --font-size-md: clamp(0.78rem, 3.2vw, 0.9rem);
+  --font-size-lg: clamp(0.9rem, 3.6vw, 0.98rem);
+  --font-size-xl: clamp(0.98rem, 4vw, 1.06rem);
+  --font-size-2xl: clamp(1.04rem, 4.2vw, 1.14rem);
+  --font-size-3xl: clamp(1.1rem, 4.6vw, 1.26rem);
+  --font-size-4xl: clamp(1.2rem, 5vw, 1.4rem);
+  --font-size-5xl: clamp(1.4rem, 6vw, 1.8rem);
+  --font-size-6xl: clamp(1.75rem, 6.8vw, 2.125rem);
+  --font-size-7xl: clamp(2rem, 8vw, 2.5rem);
+  --font-size-8xl: clamp(2.75rem, 12vw, 3.5rem);
+  --font-size-9xl: clamp(3.25rem, 15vw, 4.5rem);
+
+  /* Semantic typography tokens */
+  --type-display-hero: var(--font-size-9xl);
+  --type-display-xl: var(--font-size-8xl);
+  --type-display-lg: var(--font-size-7xl);
+  --type-display-md: var(--font-size-5xl);
+  --type-display-sm: var(--font-size-4xl);
+  --type-title-xl: var(--font-size-6xl);
+  --type-title-lg: var(--font-size-4xl);
+  --type-title-md: var(--font-size-3xl);
+  --type-title-sm: var(--font-size-2xl);
+  --type-body-xl: var(--font-size-3xl);
+  --type-body-lg: var(--font-size-2xl);
+  --type-body-md: var(--font-size-xl);
+  --type-body-sm: var(--font-size-lg);
+  --type-body-xs: var(--font-size-md);
+  --type-label-xl: var(--font-size-lg);
+  --type-label-lg: var(--font-size-md);
+  --type-label-md: var(--font-size-sm);
+  --type-label-sm: var(--font-size-sm);
+  --type-label-xs: var(--font-size-xs);
+  --type-button-lg: clamp(1.35rem, 5.8vw, 1.55rem);
+  --type-button-md: clamp(1.08rem, 4.8vw, 1.2rem);
+  --type-control-md: clamp(1rem, 4.8vw, 1.125rem);
+  --type-metric-lg: clamp(3rem, 15vw, 3.5rem);
+  --type-metric-md: clamp(1.75rem, 9vw, 2.25rem);
+  --type-metric-sm: clamp(1rem, 4.8vw, 1.4rem);
+  --type-metric-xs: clamp(1.05rem, 4.9vw, 1.3rem);
+  --type-icon-sm: clamp(0.6875rem, 3vw, 0.8125rem);
+  --type-icon-md: clamp(2rem, 10vw, 2.5rem);
+  --type-icon-lg: clamp(2.5rem, 11vw, 3rem);
+  --type-icon-xl: clamp(2.75rem, 14vw, 3.75rem);
+  --tracking-display: clamp(0.5px, 0.4vw, 1.5px);
+  --tracking-display-tight: 0.4px;
+  --tracking-label: clamp(1.2px, 0.5vw, 2px);
+  --tracking-label-wide: clamp(2px, 0.8vw, 3px);
+  --tracking-label-tight: 0.8px;
+  --lh-display: 1;
+  --lh-title: 1.1;
+  --lh-body: 1.5;
+  --lh-label: 1.1;
+  --version-badge-clearance: 42px;
+}
+
+@supports (height: 100svh) {
+  :root {
+    --app-height: 100svh;
+  }
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --app-height: 100dvh;
+  }
+}

@@ -12,37 +12,132 @@
  */
 
 (function seedGrindHistory() {
-  const DAYS_ORDER = ['A', 'B', 'C'];
+  const DAYS_ORDER = ["A", "B", "C"];
 
   const DAY_EXERCISES = {
     A: [
-      { name: 'Bulgarian Split Squat', category: 'LOWER · QUAD', bodyweight: false, baseWeight: 20 },
-      { name: 'Dumbbell Floor Press', category: 'PUSH · HORIZONTAL', bodyweight: false, baseWeight: 24 },
-      { name: 'Pull-Up', category: 'PULL · VERTICAL', bodyweight: true, baseReps: 6 },
-      { name: 'Dumbbell Romanian Deadlift', category: 'LOWER · HINGE', bodyweight: false, baseWeight: 30 },
-      { name: 'Single-Arm Dumbbell Row', category: 'PULL · HORIZONTAL', bodyweight: false, baseWeight: 22 },
-      { name: 'Hanging Knee Raise', category: 'CORE', bodyweight: true, baseReps: 12 },
-      { name: 'Single-Leg Calf Raise', category: 'CALVES', bodyweight: true, baseReps: 12 },
+      {
+        name: "Bulgarian Split Squat",
+        category: "LOWER · QUAD",
+        bodyweight: false,
+        baseWeight: 20,
+      },
+      {
+        name: "Dumbbell Floor Press",
+        category: "PUSH · HORIZONTAL",
+        bodyweight: false,
+        baseWeight: 24,
+      },
+      { name: "Pull-Up", category: "PULL · VERTICAL", bodyweight: true, baseReps: 6 },
+      {
+        name: "Dumbbell Romanian Deadlift",
+        category: "LOWER · HINGE",
+        bodyweight: false,
+        baseWeight: 30,
+      },
+      {
+        name: "Single-Arm Dumbbell Row",
+        category: "PULL · HORIZONTAL",
+        bodyweight: false,
+        baseWeight: 22,
+      },
+      { name: "Hanging Knee Raise", category: "CORE", bodyweight: true, baseReps: 12 },
+      {
+        name: "Single-Leg Calf Raise",
+        category: "CALVES",
+        bodyweight: true,
+        baseReps: 12,
+      },
     ],
     B: [
-      { name: 'Dumbbell Goblet Squat', category: 'LOWER · QUAD', bodyweight: false, baseWeight: 24 },
-      { name: 'Dumbbell Overhead Press', category: 'PUSH · VERTICAL', bodyweight: false, baseWeight: 16 },
-      { name: 'Dumbbell Incline Row', category: 'PULL · HORIZONTAL', bodyweight: false, baseWeight: 20 },
-      { name: 'Single-Leg Romanian Deadlift', category: 'LOWER · HINGE', bodyweight: false, baseWeight: 18 },
-      { name: 'Dumbbell Floor Fly', category: 'PUSH · HORIZONTAL', bodyweight: false, baseWeight: 14 },
-      { name: 'Dumbbell High Pull', category: 'ACCESSORY', bodyweight: false, baseWeight: 16 },
-      { name: 'Dumbbell Hip Thrust', category: 'LOWER · GLUTE', bodyweight: false, baseWeight: 32 },
-      { name: 'Plank Hold', category: 'CORE', bodyweight: true, baseReps: 30 },
+      {
+        name: "Dumbbell Goblet Squat",
+        category: "LOWER · QUAD",
+        bodyweight: false,
+        baseWeight: 24,
+      },
+      {
+        name: "Dumbbell Overhead Press",
+        category: "PUSH · VERTICAL",
+        bodyweight: false,
+        baseWeight: 16,
+      },
+      {
+        name: "Dumbbell Incline Row",
+        category: "PULL · HORIZONTAL",
+        bodyweight: false,
+        baseWeight: 20,
+      },
+      {
+        name: "Single-Leg Romanian Deadlift",
+        category: "LOWER · HINGE",
+        bodyweight: false,
+        baseWeight: 18,
+      },
+      {
+        name: "Dumbbell Floor Fly",
+        category: "PUSH · HORIZONTAL",
+        bodyweight: false,
+        baseWeight: 14,
+      },
+      {
+        name: "Dumbbell High Pull",
+        category: "ACCESSORY",
+        bodyweight: false,
+        baseWeight: 16,
+      },
+      {
+        name: "Dumbbell Hip Thrust",
+        category: "LOWER · GLUTE",
+        bodyweight: false,
+        baseWeight: 32,
+      },
+      { name: "Plank Hold", category: "CORE", bodyweight: true, baseReps: 30 },
     ],
     C: [
-      { name: 'Dumbbell Alternating Lunges', category: 'LOWER · QUAD', bodyweight: false, baseWeight: 16 },
-      { name: 'Chin-Up', category: 'PULL · VERTICAL', bodyweight: true, baseReps: 5 },
-      { name: 'Deficit Push-Up', category: 'PUSH · HORIZONTAL', bodyweight: true, baseReps: 8 },
-      { name: 'Single-Leg Hip Thrust', category: 'LOWER · GLUTE', bodyweight: false, baseWeight: 20 },
-      { name: 'Arnold Press', category: 'PUSH · VERTICAL', bodyweight: false, baseWeight: 14 },
-      { name: 'Diamond Push-Up', category: 'ARMS · TRICEP', bodyweight: true, baseReps: 10 },
-      { name: 'Supinating Dumbbell Curl', category: 'ARMS · BICEP', bodyweight: false, baseWeight: 12 },
-      { name: 'Single-Leg Calf Raise', category: 'CALVES', bodyweight: true, baseReps: 14 },
+      {
+        name: "Dumbbell Alternating Lunges",
+        category: "LOWER · QUAD",
+        bodyweight: false,
+        baseWeight: 16,
+      },
+      { name: "Chin-Up", category: "PULL · VERTICAL", bodyweight: true, baseReps: 5 },
+      {
+        name: "Deficit Push-Up",
+        category: "PUSH · HORIZONTAL",
+        bodyweight: true,
+        baseReps: 8,
+      },
+      {
+        name: "Single-Leg Hip Thrust",
+        category: "LOWER · GLUTE",
+        bodyweight: false,
+        baseWeight: 20,
+      },
+      {
+        name: "Arnold Press",
+        category: "PUSH · VERTICAL",
+        bodyweight: false,
+        baseWeight: 14,
+      },
+      {
+        name: "Diamond Push-Up",
+        category: "ARMS · TRICEP",
+        bodyweight: true,
+        baseReps: 10,
+      },
+      {
+        name: "Supinating Dumbbell Curl",
+        category: "ARMS · BICEP",
+        bodyweight: false,
+        baseWeight: 12,
+      },
+      {
+        name: "Single-Leg Calf Raise",
+        category: "CALVES",
+        bodyweight: true,
+        baseReps: 14,
+      },
     ],
   };
 
@@ -61,14 +156,31 @@
   }
 
   function weekKey(monday) {
-    return monday.toISOString().slice(0, 10);
+    return [
+      monday.getFullYear(),
+      String(monday.getMonth() + 1).padStart(2, "0"),
+      String(monday.getDate()).padStart(2, "0"),
+    ].join("-");
   }
 
   // Training days within a week: Mon, Wed, Fri (indices 0, 2, 4 from Monday)
   const SESSION_OFFSETS = [0, 2, 4];
 
-  const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const MONTH_SHORT = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
 
   function formatDate(d) {
     return `${WEEKDAY_SHORT[d.getDay()]} ${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`;
@@ -104,7 +216,7 @@
         for (let i = 0; i < numSets; i++) {
           if (ex.bodyweight) {
             const reps = progressedReps(ex.baseReps, globalSessionIndex);
-            sets.push({ weight: 'BW', reps: String(reps + (i === 1 ? 1 : 0)) });
+            sets.push({ weight: "BW", reps: String(reps + (i === 1 ? 1 : 0)) });
           } else {
             const weight = progressedWeight(ex.baseWeight, globalSessionIndex);
             const repsBase = 8 + (i === 0 ? 2 : 0); // first set slightly higher reps
@@ -149,30 +261,45 @@
 
       const maxSetWeight = Math.max(...numericWeights);
       const sessionVolume = entry.sets.reduce(
-        (sum, s) => sum + (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0), 0
+        (sum, s) => sum + (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0),
+        0,
       );
       const name = entry.exerciseName;
       if (!pr[name]) pr[name] = { maxWeight: 0, maxVolume: 0, sessions: [] };
       pr[name].maxWeight = Math.max(pr[name].maxWeight, maxSetWeight);
       pr[name].maxVolume = Math.max(pr[name].maxVolume, sessionVolume);
       pr[name].lastWeight = String(maxSetWeight);
-      pr[name].sessions.push({ date: session.date, weekKey: session.weekKey, maxSetWeight, sessionVolume });
+      pr[name].sessions.push({
+        date: session.date,
+        weekKey: session.weekKey,
+        maxSetWeight,
+        sessionVolume,
+      });
     });
   });
   // Trim sessions to last 52 (matches app logic)
-  Object.values(pr).forEach((data) => { data.sessions = data.sessions.slice(-52); });
+  Object.values(pr).forEach((data) => {
+    data.sessions = data.sessions.slice(-52);
+  });
 
   // Arm the nudge: set last 3 sessions of Dumbbell Floor Press to same weight
-  const NUDGE_EXERCISE = 'Dumbbell Floor Press';
+  const NUDGE_EXERCISE = "Dumbbell Floor Press";
   if (pr[NUDGE_EXERCISE]) {
     const w = pr[NUDGE_EXERCISE].maxWeight;
-    pr[NUDGE_EXERCISE].sessions.slice(-3).forEach((s) => { s.maxSetWeight = w; });
+    pr[NUDGE_EXERCISE].sessions.slice(-3).forEach((s) => {
+      s.maxSetWeight = w;
+    });
     delete pr[NUDGE_EXERCISE].lastNudgeDate;
     console.log(`[GRIND] Nudge armed for "${NUDGE_EXERCISE}" at ${w}kg`);
   }
 
-  localStorage.setItem('grind:history', JSON.stringify(history));
-  localStorage.setItem('grind:pr', JSON.stringify(pr));
-  console.log(`[GRIND] Seeded ${history.length} sessions across ${WEEKS} weeks. Reloading...`);
+  Object.keys(localStorage)
+    .filter((key) => key.startsWith("grind:"))
+    .forEach((key) => localStorage.removeItem(key));
+  localStorage.setItem("grind:history", JSON.stringify(history));
+  localStorage.setItem("grind:pr", JSON.stringify(pr));
+  console.log(
+    `[GRIND] Seeded ${history.length} sessions across ${WEEKS} weeks. Reloading...`,
+  );
   location.reload();
 })();

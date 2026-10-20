@@ -4,3 +4,12 @@
 CLAUDE.md
 node_modules/
 dist/
+.env*
+!.env.example
+*.log
+.vite/
+coverage/
+playwright-report/
+test-results/
+.idea/
+.vscode/

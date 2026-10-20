@@ -1,6 +1,7 @@
 export const EXERCISES = {
   "lower-quad": [
     {
+      id: "bulgarian-split-squat",
       name: "Bulgarian Split Squat",
       sets: 3,
       repsRange: "6–10",
@@ -8,6 +9,7 @@ export const EXERCISES = {
       tip: "Keep your front foot flat and drive through your heel as you stand up.",
     },
     {
+      id: "dumbbell-goblet-squat",
       name: "Dumbbell Goblet Squat",
       sets: 3,
       repsRange: "12–15",
@@ -15,6 +17,7 @@ export const EXERCISES = {
       tip: "Pause for a second at the bottom and push your knees out as you stand.",
     },
     {
+      id: "dumbbell-alternating-lunges",
       name: "Dumbbell Alternating Lunges",
       sets: 3,
       repsRange: "20–24 steps",
@@ -25,6 +28,7 @@ export const EXERCISES = {
 
   "lower-hinge": [
     {
+      id: "dumbbell-romanian-deadlift",
       name: "Dumbbell Romanian Deadlift",
       sets: 4,
       repsRange: "6–12",
@@ -32,6 +36,7 @@ export const EXERCISES = {
       tip: "Push your hips back until you feel your hamstrings stretch, then drive them forward.",
     },
     {
+      id: "single-leg-romanian-deadlift",
       name: "Single-Leg Romanian Deadlift",
       sets: 4,
       repsRange: "8–10 each",
@@ -49,6 +54,7 @@ export const EXERCISES = {
 
   "lower-glute": [
     {
+      id: "dumbbell-hip-thrust",
       name: "Dumbbell Hip Thrust",
       sets: 3,
       repsRange: "12–15",
@@ -56,6 +62,7 @@ export const EXERCISES = {
       tip: "Squeeze your glutes hard at the top and hold for a second before lowering.",
     },
     {
+      id: "single-leg-hip-thrust",
       name: "Single-Leg Hip Thrust",
       sets: 3,
       repsRange: "10–12 each",
@@ -66,6 +73,7 @@ export const EXERCISES = {
 
   "push-horizontal": [
     {
+      id: "deficit-push-up",
       name: "Deficit Push-Up",
       bodyweight: true,
       sets: 4,
@@ -74,6 +82,7 @@ export const EXERCISES = {
       tip: "Let your chest sink below your hands at the bottom — that extra depth is the whole point.",
     },
     {
+      id: "dumbbell-floor-press",
       name: "Dumbbell Floor Press",
       sets: 4,
       repsRange: "8–12",
@@ -81,6 +90,7 @@ export const EXERCISES = {
       tip: "Lower until your elbows lightly touch the floor, then press — no bouncing.",
     },
     {
+      id: "dumbbell-floor-fly",
       name: "Dumbbell Floor Fly",
       sets: 4,
       repsRange: "12–15",
@@ -88,6 +98,7 @@ export const EXERCISES = {
       tip: "Focus on feeling the stretch across your chest at the bottom of each rep.",
     },
     {
+      id: "archer-push-up",
       name: "Archer Push-Up",
       bodyweight: true,
       sets: 4,
@@ -99,6 +110,7 @@ export const EXERCISES = {
 
   "push-vertical": [
     {
+      id: "dumbbell-overhead-press",
       name: "Dumbbell Overhead Press",
       sets: 3,
       repsRange: "10–12",
@@ -106,6 +118,7 @@ export const EXERCISES = {
       tip: "Press straight up over your head, not out in front of you.",
     },
     {
+      id: "arnold-press",
       name: "Arnold Press",
       sets: 3,
       repsRange: "10–12",
@@ -113,6 +126,7 @@ export const EXERCISES = {
       tip: "Rotate your palms away from you as you press up, and reverse the rotation on the way down.",
     },
     {
+      id: "pike-push-up",
       name: "Pike Push-Up",
       bodyweight: true,
       sets: 3,
@@ -124,6 +138,7 @@ export const EXERCISES = {
 
   "pull-vertical": [
     {
+      id: "pull-up",
       name: "Pull-Up",
       bodyweight: true,
       sets: 3,
@@ -132,6 +147,7 @@ export const EXERCISES = {
       tip: "Think about pulling your elbows down to your sides rather than pulling your chin to the bar.",
     },
     {
+      id: "chin-up",
       name: "Chin-Up",
       bodyweight: true,
       sets: 3,
@@ -150,6 +166,7 @@ export const EXERCISES = {
 
   "pull-horizontal": [
     {
+      id: "dumbbell-incline-row",
       name: "Dumbbell Incline Row",
       sets: 3,
       repsRange: "10–12 each",
@@ -157,6 +174,7 @@ export const EXERCISES = {
       tip: "Pull your elbows straight back and squeeze your shoulder blades together at the top.",
     },
     {
+      id: "single-arm-dumbbell-row",
       name: "Single-Arm Dumbbell Row",
       sets: 3,
       repsRange: "10–12 each",
@@ -167,6 +185,7 @@ export const EXERCISES = {
 
   "arms-bicep": [
     {
+      id: "supinating-dumbbell-curl",
       name: "Supinating Dumbbell Curl",
       sets: 3,
       repsRange: "10–12",
@@ -174,6 +193,7 @@ export const EXERCISES = {
       tip: "Rotate your palm to face the ceiling as you curl up and squeeze hard at the top.",
     },
     {
+      id: "hammer-curl",
       name: "Hammer Curl",
       sets: 3,
       repsRange: "12–15",
@@ -184,6 +204,7 @@ export const EXERCISES = {
 
   "arms-tricep": [
     {
+      id: "dumbbell-oh-tricep-extension",
       name: "Dumbbell OH Tricep Extension",
       sets: 3,
       repsRange: "10–12",
@@ -191,6 +212,7 @@ export const EXERCISES = {
       tip: "Keep your upper arms still and extend fully, squeezing for a second at lockout.",
     },
     {
+      id: "dumbbell-tricep-kickback",
       name: "Dumbbell Tricep Kickback",
       sets: 3,
       repsRange: "12–15",
@@ -198,6 +220,7 @@ export const EXERCISES = {
       tip: "Extend your arm to fully straight and go slow on the way back — that's where the work is.",
     },
     {
+      id: "diamond-push-up",
       name: "Diamond Push-Up",
       bodyweight: true,
       sets: 3,
@@ -209,6 +232,7 @@ export const EXERCISES = {
 
   core: [
     {
+      id: "hanging-knee-raise",
       name: "Hanging Knee Raise",
       bodyweight: true,
       sets: 3,
@@ -217,6 +241,7 @@ export const EXERCISES = {
       tip: "Take two seconds up and two seconds down — no swinging.",
     },
     {
+      id: "hollow-body-hold",
       name: "Hollow Body Hold",
       bodyweight: true,
       sets: 3,
@@ -225,6 +250,7 @@ export const EXERCISES = {
       tip: "Press your lower back into the floor — if it lifts off, raise your legs higher.",
     },
     {
+      id: "weighted-crunch",
       name: "Weighted Crunch",
       sets: 3,
       repsRange: "15–20",
@@ -232,6 +258,7 @@ export const EXERCISES = {
       tip: "Curl your ribcage toward your hips rather than just lifting your head.",
     },
     {
+      id: "plank-hold",
       name: "Plank Hold",
       bodyweight: true,
       sets: 3,
@@ -240,6 +267,7 @@ export const EXERCISES = {
       tip: "Squeeze your glutes and abs together — your body should feel like one rigid plank.",
     },
     {
+      id: "dead-bug",
       name: "Dead Bug",
       bodyweight: true,
       sets: 3,
@@ -251,6 +279,7 @@ export const EXERCISES = {
 
   accessory: [
     {
+      id: "dumbbell-high-pull",
       name: "Dumbbell High Pull",
       sets: 3,
       repsRange: "10–12",
@@ -258,6 +287,7 @@ export const EXERCISES = {
       tip: "Pull the dumbbells up to chin height with your elbows flaring out above your hands.",
     },
     {
+      id: "dumbbell-rear-delt-fly",
       name: "Dumbbell Rear Delt Fly",
       sets: 3,
       repsRange: "12–15",
@@ -265,6 +295,7 @@ export const EXERCISES = {
       tip: "Lead with your elbows out to the sides rather than lifting with your hands.",
     },
     {
+      id: "dumbbell-side-raise",
       name: "Dumbbell Side Raise",
       sets: 3,
       repsRange: "8–12",
@@ -275,6 +306,7 @@ export const EXERCISES = {
 
   calves: [
     {
+      id: "single-leg-calf-raise",
       name: "Single-Leg Calf Raise",
       sets: 3,
       repsRange: "12–15 each",
@@ -290,41 +322,56 @@ export const DAYS = {
   A: {
     name: "Full Body A",
     slots: [
-      { key: "lower-quad", label: "LOWER · QUAD" },
-      { key: "push-horizontal", label: "PUSH · HORIZONTAL" },
-      { key: "pull-vertical", label: "PULL · VERTICAL" },
-      { key: "lower-hinge", label: "LOWER · HINGE" },
-      { key: "pull-horizontal", label: "PULL · HORIZONTAL" },
-      { key: "core", label: "CORE", supersetGroup: "core-calves-a" },
-      { key: "calves", label: "CALVES", supersetGroup: "core-calves-a" },
+      { id: "a-lower-quad", key: "lower-quad", label: "LOWER · QUAD" },
+      { id: "a-push-horizontal", key: "push-horizontal", label: "PUSH · HORIZONTAL" },
+      { id: "a-pull-vertical", key: "pull-vertical", label: "PULL · VERTICAL" },
+      { id: "a-lower-hinge", key: "lower-hinge", label: "LOWER · HINGE" },
+      { id: "a-pull-horizontal", key: "pull-horizontal", label: "PULL · HORIZONTAL" },
+      { id: "a-core", key: "core", label: "CORE", supersetGroup: "core-calves-a" },
+      {
+        id: "a-calves",
+        key: "calves",
+        label: "CALVES",
+        supersetGroup: "core-calves-a",
+      },
     ],
   },
 
   B: {
     name: "Full Body B",
     slots: [
-      { key: "lower-quad", label: "LOWER · QUAD" },
-      { key: "push-vertical", label: "PUSH · VERTICAL" },
-      { key: "pull-horizontal", label: "PULL · HORIZONTAL" },
-      { key: "lower-hinge", label: "LOWER · HINGE" },
-      { key: "push-horizontal", label: "PUSH · HORIZONTAL" },
-      { key: "accessory", label: "ACCESSORY" },
-      { key: "lower-glute", label: "LOWER · GLUTE" },
-      { key: "core", label: "CORE" },
+      { id: "b-lower-quad", key: "lower-quad", label: "LOWER · QUAD" },
+      { id: "b-push-vertical", key: "push-vertical", label: "PUSH · VERTICAL" },
+      { id: "b-pull-horizontal", key: "pull-horizontal", label: "PULL · HORIZONTAL" },
+      { id: "b-lower-hinge", key: "lower-hinge", label: "LOWER · HINGE" },
+      { id: "b-push-horizontal", key: "push-horizontal", label: "PUSH · HORIZONTAL" },
+      { id: "b-accessory", key: "accessory", label: "ACCESSORY" },
+      { id: "b-lower-glute", key: "lower-glute", label: "LOWER · GLUTE" },
+      { id: "b-core", key: "core", label: "CORE" },
     ],
   },
 
   C: {
     name: "Full Body C",
     slots: [
-      { key: "lower-quad", label: "LOWER · QUAD" },
-      { key: "pull-vertical", label: "PULL · VERTICAL" },
-      { key: "push-horizontal", label: "PUSH · HORIZONTAL" },
-      { key: "lower-glute", label: "LOWER · GLUTE" },
-      { key: "push-vertical", label: "PUSH · VERTICAL" },
-      { key: "arms-tricep", label: "ARMS · TRICEP", supersetGroup: "arms-c" },
-      { key: "arms-bicep", label: "ARMS · BICEP", supersetGroup: "arms-c" },
-      { key: "calves", label: "CALVES" },
+      { id: "c-lower-quad", key: "lower-quad", label: "LOWER · QUAD" },
+      { id: "c-pull-vertical", key: "pull-vertical", label: "PULL · VERTICAL" },
+      { id: "c-push-horizontal", key: "push-horizontal", label: "PUSH · HORIZONTAL" },
+      { id: "c-lower-glute", key: "lower-glute", label: "LOWER · GLUTE" },
+      { id: "c-push-vertical", key: "push-vertical", label: "PUSH · VERTICAL" },
+      {
+        id: "c-arms-tricep",
+        key: "arms-tricep",
+        label: "ARMS · TRICEP",
+        supersetGroup: "arms-c",
+      },
+      {
+        id: "c-arms-bicep",
+        key: "arms-bicep",
+        label: "ARMS · BICEP",
+        supersetGroup: "arms-c",
+      },
+      { id: "c-calves", key: "calves", label: "CALVES" },
     ],
   },
 };

@@ -1,190 +1,127 @@
-# Core Logic
+# Core logic
 
-## Week Key
+The implementation lives in `src/domain/` and is covered by Vitest. This guide
+documents intent; code and tests remain authoritative.
+
+## Local week key
+
+Find local Monday, then format local date parts:
+
 ```js
-function getWeekKey() {
-  const now = new Date();
-  const dow = now.getDay();
-  const offset = dow === 0 ? -6 : 1 - dow;
-  const mon = new Date(now);
-  mon.setDate(now.getDate() + offset);
-  return mon.toISOString().slice(0, 10); // "YYYY-MM-DD", always correct
-}
+const offsetToMonday = day === 0 ? -6 : 1 - day;
+date.setDate(date.getDate() + offsetToMonday);
+return `${year}-${month}-${dayOfMonth}`;
 ```
 
-## Weekly Template Choices
-```js
-function getOrCreateDayAssignment() {
-  const week = loadWeek();
-  if (week.templateChoices) return week.templateChoices;
+Do not use `toISOString()` here. UTC conversion can turn Monday midnight into
+Sunday in positive UTC offsets.
 
-  week.templateChoices = ["A", "B", "C"];
-  saveWeek(week);
-  return week.templateChoices;
-}
-// Result example: ["A", "B", "C"]
-// Any incomplete template can be started on any day of the current week.
+## Exercise selection
+
+For each workout slot:
+
+1. Exclude exercise IDs completed in the same category this week.
+2. Exclude exercise IDs already reserved by another matching slot in the
+   active session.
+3. Exclude the currently displayed exercise when swapping.
+4. If the strict pool is empty, relax weekly exclusions before session
+   exclusions.
+5. Fall back to the whole pool only when it is smaller than the constraints.
+
+Selection uses stable IDs; display-name changes do not bypass deduplication.
+An empty or missing pool is a configuration error, never a signal to complete
+the workout.
+
+## Set logging
+
+A weighted set is ready when reps are present. Weight is optional and
+normalizes to `—` if invalid.
+
+A bodyweight set:
+
+- Stores `BW` as its load
+- Renders no editable weight field
+- Tracks total reps for progress
+- Does not create weight or volume PRs
+
+The next set inherits the just-completed weight and reps unless the user
+already edited that field.
+
+## Superset progression
+
+After a set is logged:
+
+1. Persist the current partner's set array in `partialSets`.
+2. Find all partners in the same group with expected sets still incomplete.
+3. If none remain, commit one exercise entry per partner.
+4. Otherwise move to the next incomplete partner.
+5. Start rest only when progression wraps to an earlier partner.
+
+This supports partners with different set counts.
+
+## Active duration
+
+Duration is accumulated only while a session is active:
+
+```text
+activeElapsedMs
+  + (now - activeStartedAt, when not paused)
 ```
 
-## Exercise Pick (intra-session)
-```js
-function pickExercise(categoryKey, slotPosition) {
-  // Guard: unknown category returns null, caller handles gracefully
-  const pool = EXERCISES[categoryKey] ?? [];
-  if (pool.length === 0) return null;
+Pausing stores elapsed time and clears `activeStartedAt`. Resuming starts a new
+active interval. The final duration is rounded to minutes with a minimum of one
+minute.
 
-  const weekUsed = getWeekUsed(categoryKey);              // from week store
-  const sessionReserved = getSessionReserved(categoryKey); // from active session
+## Personal best previews
 
-  let available = pool.filter(e =>
-    !weekUsed.includes(e.name) && !sessionReserved.includes(e.name)
-  );
+For weighted sets:
 
-  if (available.length === 0) {
-    // All week-used exhausted — reset week dedup but respect session reservations
-    available = pool.filter(e => !sessionReserved.includes(e.name));
-  }
-
-  if (available.length === 0) {
-    // Fallback: pool smaller than same-category slots in this session
-    available = pool;
-  }
-
-  const chosen = available[Math.floor(Math.random() * available.length)];
-
-  // Reserve at SPIN time (not completion time) — prevents Day B pull-vertical × 2
-  // from serving the same exercise in both slots within one session
-  reserveInSession(categoryKey, slotPosition, chosen.name);
-
-  return chosen;
-}
+```text
+max weight = maximum numeric set weight
+volume = sum(weight × reps)
 ```
 
-## Rest Timer (background-safe)
-```js
-function startRest(seconds) {
-  const endTime = Date.now() + seconds * 1000;
-  session.restEndsAt = endTime;
-  saveSession(); // persisted — survives tab close
+The exercise screen compares those metrics with completed-history projections
+and may show a preview badge. It does not update canonical PR data.
 
-  const tick = () => {
-    const remaining = Math.ceil((endTime - Date.now()) / 1000);
-    if (remaining <= 0) { onRestComplete(); return; }
-    updateTimerDisplay(remaining);
-    restTimerId = setTimeout(tick, 200);
-  };
-  tick();
-}
+When the session is committed, PR records are rebuilt from completed history.
+This keeps discard, delete, restore, and migration behavior consistent.
 
-// On app resume: check session.restEndsAt
-function resumeRestIfNeeded() {
-  if (!session.restEndsAt) return;
-  const remaining = Math.ceil((session.restEndsAt - Date.now()) / 1000);
-  if (remaining > 0) startRest(remaining); // pick up where we left off
-  else onRestComplete();                   // timer already expired
-}
+## Progressive overload prompt
+
+The prompt appears when the last three completed weighted sessions for an
+exercise have the same maximum weight. It suggests `+2.5kg` and is suppressed
+for 21 days after being shown.
+
+This is a small heuristic, not a training prescription.
+
+## Atomic completion
+
+One state-envelope transaction:
+
+1. Appends the history entry if its session ID is not already present.
+2. Rebuilds week completion and weekly used exercise IDs.
+3. Rebuilds PR projections.
+4. Removes the active session.
+
+If persistence fails, the app stays on the active workout and reports that it
+could not save. Calling completion again with the same session ID is safe.
+
+## History deletion and undo
+
+Deletion and restoration each run as one transaction and rebuild every derived
+projection. Weekly used exercise IDs therefore cannot remain stale after a
+history edit.
+
+## Webhook delivery
+
+The payload includes a stable `session_id` and is queued before delivery.
+Queue insertion deduplicates by that ID. Delivery sends:
+
+```http
+Idempotency-Key: <session_id>
+Content-Type: application/json
 ```
 
-## PR Detection
-```js
-// Returns null for BW/empty/non-numeric weights.
-// Used in PR tracking and volume calculation.
-function parseWeight(w) {
-  if (!w || w === '—' || w.toLowerCase?.() === 'bw') return null;
-  const n = parseFloat(w);
-  return isNaN(n) ? null : n;
-}
-
-function checkAndUpdatePR(exerciseName, sets) {
-  const numericWeights = sets.map(s => parseWeight(s.weight)).filter(w => w !== null);
-
-  // BW exercise (all sets have no numeric weight) — skip PR tracking entirely
-  if (numericWeights.length === 0) return {};
-
-  const maxSetWeight = Math.max(...numericWeights);
-  const sessionVolume = sets.reduce((sum, s) => {
-    const w = parseWeight(s.weight) ?? 0;
-    const r = parseInt(s.reps) || 0;
-    return sum + w * r;
-  }, 0);
-
-  const history = loadPR(exerciseName);
-  const prs = {};
-
-  if (maxSetWeight > (history.maxWeight || 0)) {
-    prs.weight = { prev: history.maxWeight, new: maxSetWeight };
-    history.maxWeight = maxSetWeight;
-  }
-
-  if (sessionVolume > (history.maxVolume || 0)) {
-    prs.volume = { prev: history.maxVolume, new: sessionVolume };
-    history.maxVolume = sessionVolume;
-  }
-
-  // Only update lastWeight if we have a real numeric value
-  history.lastWeight = maxSetWeight;
-  history.sessions = [
-    ...(history.sessions || []),
-    { date: todayFormatted(), weekKey: getWeekKey(), maxSetWeight, sessionVolume }
-  ].slice(-52);
-
-  savePR(exerciseName, history);
-  return prs; // { weight?: {...}, volume?: {...} } or {}
-}
-```
-
-Trigger: `checkAndUpdatePR` is called in `completeExercise()`. If `prs` is non-empty, show PR badge on the transition back to SessionView.
-
-## Progressive Overload Nudge
-```js
-function getOverloadNudge(exerciseName) {
-  const h = loadPR(exerciseName);
-  const recent = (h.sessions || []).slice(-3);
-  if (recent.length < 3) return null;
-
-  // Don't nudge if already nudged within the last 3 weeks
-  if (h.lastNudgeDate) {
-    const daysSince = (Date.now() - new Date(h.lastNudgeDate)) / 86400000;
-    if (daysSince < 21) return null;
-  }
-
-  const weights = recent.map(s => s.maxSetWeight).filter(Boolean);
-  if (weights.length < 3) return null; // BW sessions in recent history
-  const allSame = weights.every(w => w === weights[0]);
-  if (!allSame) return null;
-
-  return { currentWeight: weights[0], suggestedWeight: weights[0] + 2.5 };
-}
-
-// Call this when the nudge is DISPLAYED (Done screen recap),
-// not when calculated — prevents re-nudging on same session open/close.
-function markNudgeShown(exerciseName) {
-  const h = loadPR(exerciseName);
-  h.lastNudgeDate = new Date().toISOString();
-  savePR(exerciseName, h);
-}
-```
-
-Shown: on the Done screen (recap of all nudges for the session), AND as a subtle chip badge on ExerciseView when opening the set logger ("Last 3× at 40kg — try 42.5?").
-`markNudgeShown()` is called once per exercise when the Done screen renders its nudge list.
-
-## TODO: Webhook Payload (once at session end) 
-```js
-{
-  "date": "13/03/2026",           // dd/MM/yyyy
-  "day": "A",
-  "duration_minutes": 62,
-  "total_sets": 26,
-  "exercises": [
-    {
-      "exercise": "Bulgarian Split Squat",
-      "category": "LOWER · QUAD",
-      "sets": "Set 1: 40kg × 8 | Set 2: 42.5kg × 7",
-      "session_volume_kg": 595,
-      "pr_weight": false,
-      "pr_volume": true,
-      "timestamp": "2026-03-13T09:30:00Z"
-    }
-  ]
-}
-```
+Failures use bounded exponential backoff. Retrying cannot add another queue
+item for the same session.

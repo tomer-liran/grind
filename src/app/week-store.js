@@ -1,25 +1,18 @@
-import { storageGet, storageSet } from "../lib/storage.js";
+import {
+  formatWeekdayLabel,
+  getLocalWeekKey,
+  getLocalWeekday,
+  WEEKDAY_NAMES,
+} from "../domain/calendar.js";
+import { getStorageKeys, storageGet, storageSet } from "../lib/storage.js";
 
 const DAY_TEMPLATES = ["A", "B", "C"];
-const WEEKDAY_NAMES = [
-  "sunday",
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-];
 
 export { DAY_TEMPLATES, WEEKDAY_NAMES };
+export { formatWeekdayLabel };
 
 export function getTodayWeekday() {
-  return WEEKDAY_NAMES[new Date().getDay()];
-}
-
-export function formatWeekdayLabel(weekday) {
-  if (!weekday) return "";
-  return weekday.charAt(0).toUpperCase() + weekday.slice(1);
+  return getLocalWeekday();
 }
 
 export function createEmptyWeek() {
@@ -84,10 +77,7 @@ export function normalizeWeekData(week) {
   ) {
     normalized.completed.forEach((templateId, index) => {
       const weekday = normalized.completedWeekdays[index];
-      if (
-        DAY_TEMPLATES.includes(templateId) &&
-        WEEKDAY_NAMES.includes(weekday)
-      ) {
+      if (DAY_TEMPLATES.includes(templateId) && WEEKDAY_NAMES.includes(weekday)) {
         normalized.completedByTemplate[templateId] = weekday;
       }
     });
@@ -115,14 +105,8 @@ export function getOrCreateDayAssignment(weekKey) {
   return week.templateChoices;
 }
 
-export function getWeekKey() {
-  const now = new Date();
-  const dow = now.getDay();
-  const offset = dow === 0 ? -6 : 1 - dow;
-  const mon = new Date(now);
-  mon.setDate(now.getDate() + offset);
-  mon.setHours(0, 0, 0, 0);
-  return mon.toISOString().slice(0, 10);
+export function getWeekKey(date = new Date()) {
+  return getLocalWeekKey(date);
 }
 
 export function weekStorageKey(weekKey) {
@@ -130,18 +114,7 @@ export function weekStorageKey(weekKey) {
 }
 
 export function getStoredWeekKeys() {
-  const keys = [];
-  try {
-    for (let i = 0; i < localStorage.length; i += 1) {
-      const key = localStorage.key(i);
-      if (key?.startsWith("grind:week-")) {
-        keys.push(key.slice("grind:week-".length));
-      }
-    }
-  } catch {
-    return [];
-  }
-  return keys;
+  return getStorageKeys("grind:week-").map((key) => key.slice("grind:week-".length));
 }
 
 export function loadWeek(weekKey) {

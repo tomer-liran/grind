@@ -1,0 +1,55 @@
+name: Bug report
+description: Report a reproducible problem in Grind
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Please do not report security vulnerabilities here. Follow SECURITY.md instead.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Include what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open…
+        2. Tap…
+        3. See…
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and operating system
+      placeholder: Safari 20 on iOS 20
+    validations:
+      required: true
+  - type: dropdown
+    id: installed
+    attributes:
+      label: How are you running Grind?
+      options:
+        - Browser tab
+        - Installed PWA
+        - Local development server
+    validations:
+      required: true
+  - type: dropdown
+    id: storage
+    attributes:
+      label: Did resetting local data change the result?
+      options:
+        - I did not reset local data
+        - The bug remained after reset
+        - The bug disappeared after reset
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console output or screenshots
+      description: Remove personal workout data or webhook URLs before sharing.

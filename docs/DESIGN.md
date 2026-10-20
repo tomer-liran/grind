@@ -1,6 +1,7 @@
 # Design System — Premium Performance UI
 
 The current visual direction aims for a premium, high-focus fitness product rather than a themed mythic interface. The style combines:
+
 - high-contrast graphite surfaces with restrained glow and depth
 - warm neutral highlights for completion, trust, and hierarchy
 - a clean mint performance accent for active states and motion feedback
@@ -16,15 +17,14 @@ The current visual direction aims for a premium, high-focus fitness product rath
 
 ## Typography
 
-- Display: `Space Grotesk`
+- Display: the platform's high-quality geometric/system display stack.
   Used for logos, screen titles, and high-emphasis metrics.
-  Goal: compact, modern, performance-oriented confidence.
-- Body / UI: `Plus Jakarta Sans`
+- Body / UI: `Inter` when installed, then native system UI fonts.
   Used for descriptive copy, metadata, CTAs, and app chrome.
-  Goal: crisp mobile readability without feeling generic.
-- Labels / utility: `IBM Plex Mono`
+- Labels / utility: native system monospace fonts.
   Used for status text, chips, timing metadata, and system-style labels.
-  Goal: give structure and rhythm to compact data without looking playful.
+- No font network requests. Typography must remain stable offline and avoid
+  sending a visitor's IP address to a third-party font host.
 - Semantic scale:
   `--type-display-hero`, `--type-display-xl`, `--type-display-lg`, `--type-display-md`
   for branded hero moments, workout titles, and primary ritual states.
@@ -47,4 +47,4 @@ The current visual direction aims for a premium, high-focus fitness product rath
 - Backgrounds should feel layered and atmospheric, with noise and lighting used sparingly.
 - Cards should feel premium and dense, like performance dashboards rather than themed plaques.
 - Motion should feel deliberate and confident, especially around session generation, PB overlays, and completion.
-- A small footer badge should always expose the current beta version label for testers.
+- A small footer badge exposes the package release version for support and testing.

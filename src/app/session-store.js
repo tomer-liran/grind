@@ -1,5 +1,12 @@
 import { DAYS } from "../data/workouts.js";
+import {
+  createSessionState,
+  normalizeSessionTiming,
+  pauseSessionClock,
+  resumeSessionClock,
+} from "../domain/session.js";
 import { storageDel, storageGet, storageSet } from "../lib/storage.js";
+import { closeDialog, openDialog } from "../ui/dialog.js";
 
 let runtime = {
   getWeekKey: () => "",
@@ -9,7 +16,6 @@ let runtime = {
 };
 
 let session = null;
-let exitSessionReturnFocus = null;
 
 export function initSessionStore(deps = {}) {
   runtime = {
@@ -28,30 +34,41 @@ export function setSession(nextSession) {
 }
 
 export function loadSession() {
-  return storageGet("grind:session-active", null);
+  const stored = storageGet("grind:session-active", null);
+  return stored ? normalizeSessionTiming(stored) : null;
 }
 
 export function saveSession() {
-  if (session) storageSet("grind:session-active", session);
+  return session
+    ? storageSet("grind:session-active", session)
+    : storageDel("grind:session-active");
 }
 
 export function clearSession() {
   session = null;
-  storageDel("grind:session-active");
+  return storageDel("grind:session-active");
+}
+
+export function pauseSession() {
+  if (!session) session = loadSession();
+  if (!session) return null;
+  session = pauseSessionClock(session);
+  saveSession();
+  return session;
+}
+
+export function resumeSessionTiming() {
+  if (!session) session = loadSession();
+  if (!session) return null;
+  session = resumeSessionClock(session);
+  saveSession();
+  return session;
 }
 
 export function closeExitSessionModal() {
   const modal = document.getElementById("exit-session-modal");
   if (!modal) return;
-  modal.classList.remove("show");
-  modal.setAttribute("aria-hidden", "true");
-  if (
-    exitSessionReturnFocus &&
-    typeof exitSessionReturnFocus.focus === "function"
-  ) {
-    exitSessionReturnFocus.focus();
-  }
-  exitSessionReturnFocus = null;
+  closeDialog(modal);
   runtime.queueOnboardingRefresh();
 }
 
@@ -67,33 +84,25 @@ export function openExitSessionModal(triggerEl = null) {
     return;
   }
 
-  exitSessionReturnFocus = triggerEl;
-  modal.classList.add("show");
-  modal.setAttribute("aria-hidden", "false");
-  document.getElementById("exit-session-resume-later")?.focus();
+  openDialog(modal, triggerEl);
   runtime.queueOnboardingRefresh();
 }
 
 export function startSession(templateId) {
   const day = DAYS[templateId];
+  if (!day?.slots?.length) return null;
   const weekKey = runtime.getWeekKey();
 
-  session = {
+  session = createSessionState({
     templateId,
     weekKey,
-    slots: day.slots.slice(),
-    slotIndex: 0,
-    pickedExercises: [],
-    reservations: {},
-    currentExercise: null,
-    currentSlot: null,
-    currentSets: [],
-    partialSets: {},
-    spinState: "ready",
-    entries: [],
-    restEndsAt: null,
-    startTime: new Date().toISOString(),
-    status: "in_progress",
-  };
-  runtime.pickAllExercises();
+    slots: day.slots,
+  });
+  const picked = runtime.pickAllExercises();
+  if (!picked.length) {
+    clearSession();
+    return null;
+  }
+  saveSession();
+  return session;
 }

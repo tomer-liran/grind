@@ -1,0 +1,17 @@
+name: Usage question
+description: Ask about setup, customization, or self-hosting
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: What are you trying to do?
+      description: Include the relevant setup, customization, or deployment details.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: Node version, browser, host, or operating system

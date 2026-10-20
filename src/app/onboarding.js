@@ -54,8 +54,7 @@ const ONBOARDING_CONFIG = {
   [ONBOARDING_STEP_HOME]: {
     label: "Home",
     copy: "Pick a session to begin",
-    getTargets: () =>
-      document.querySelector('[data-onboarding-target="home-card"]'),
+    getTargets: () => document.querySelector('[data-onboarding-target="home-card"]'),
   },
   [ONBOARDING_STEP_PULL]: {
     label: "Adjust",
@@ -134,9 +133,7 @@ function saveOnboarding() {
 }
 
 export function ensureOnboardingState() {
-  const stored = normalizeOnboardingState(
-    storageGet(ONBOARDING_STORAGE_KEY, null),
-  );
+  const stored = normalizeOnboardingState(storageGet(ONBOARDING_STORAGE_KEY, null));
 
   if (stored) {
     onboarding = stored;
@@ -144,8 +141,7 @@ export function ensureOnboardingState() {
   }
 
   const hasExistingActivity =
-    runtime.loadHistory().length > 0 ||
-    runtime.loadSession()?.status === "in_progress";
+    runtime.loadHistory().length > 0 || runtime.loadSession()?.status === "in_progress";
 
   onboarding = {
     ...createDefaultOnboardingState(),
@@ -323,11 +319,7 @@ function getOnboardingDisplayKey() {
 }
 
 function scheduleOnboardingDisplay(displayKey) {
-  if (
-    !displayKey ||
-    onboardingScheduledKey === displayKey ||
-    onboardingShowTimer
-  ) {
+  if (!displayKey || onboardingScheduledKey === displayKey || onboardingShowTimer) {
     return;
   }
 
@@ -383,8 +375,7 @@ function positionOnboardingOverlay(rect) {
 
   const tooltipWidth = Math.min(280, viewport.width - 32);
   const tooltipHeight = tooltip.getBoundingClientRect().height;
-  const targetCenter =
-    anchorRect.left + (anchorRect.right - anchorRect.left) / 2;
+  const targetCenter = anchorRect.left + (anchorRect.right - anchorRect.left) / 2;
   const tooltipLeft = clamp(
     targetCenter - tooltipWidth / 2,
     16,

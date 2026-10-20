@@ -1,3 +1,5 @@
+import { closeDialog, openDialog } from "../ui/dialog.js";
+
 export function wireEvents({
   renderHistory,
   showScreen,
@@ -8,6 +10,7 @@ export function wireEvents({
   advanceOnboardingStep,
   renderSlotMachine,
   discardSessionAndGoHome,
+  keepSessionAndGoHome,
   startSpinReveal,
   swapWorkoutExercise,
   launchExercise,
@@ -25,33 +28,44 @@ export function wireEvents({
   queueOnboardingRefresh,
   trackOnboardingViewport,
   resumeSession,
+  exportWorkoutData,
+  importWorkoutData,
+  resetWorkoutData,
 }) {
-  document
-    .getElementById("day-picker-cards")
-    .addEventListener("click", async (e) => {
-      const card = e.target.closest("[data-day]");
-      if (!card) return;
-      const activeSession = getActiveHomeSession();
-      if (card.classList.contains("completed")) return;
-      if (getCompletedDays(getWeekKey()).includes(card.dataset.day)) return;
+  let pendingHistoryDeleteId = null;
+  const updateNetworkStatus = () => {
+    const status = document.getElementById("network-status");
+    if (!status) return;
+    status.textContent = navigator.onLine ? "Saved locally" : "Offline · saved locally";
+    status.classList.toggle("is-offline", !navigator.onLine);
+  };
+  updateNetworkStatus();
+  window.addEventListener("online", updateNetworkStatus);
+  window.addEventListener("offline", updateNetworkStatus);
 
-      if (activeSession) {
-        if (activeSession.templateId !== card.dataset.day) return;
-        resumeSession();
-        return;
-      }
+  document.getElementById("day-picker-cards").addEventListener("click", async (e) => {
+    const card = e.target.closest("[data-day]");
+    if (!card) return;
+    const activeSession = getActiveHomeSession();
+    if (card.classList.contains("completed")) return;
+    if (getCompletedDays(getWeekKey()).includes(card.dataset.day)) return;
 
-      startSession(card.dataset.day);
-      advanceOnboardingStep("home_card", "start_button");
-      renderSlotMachine();
-      showScreen("screen-slot-machine");
-    });
+    if (activeSession) {
+      if (activeSession.templateId !== card.dataset.day) return;
+      resumeSession();
+      return;
+    }
 
-  document
-    .getElementById("slot-machine-back")
-    .addEventListener("click", async () => {
-      discardSessionAndGoHome();
-    });
+    const session = startSession(card.dataset.day);
+    if (!session) return;
+    advanceOnboardingStep("home_card", "start_button");
+    renderSlotMachine();
+    showScreen("screen-slot-machine");
+  });
+
+  document.getElementById("slot-machine-back").addEventListener("click", (event) => {
+    openExitSessionModal(event.currentTarget);
+  });
 
   document
     .getElementById("slot-spin-button")
@@ -65,29 +79,23 @@ export function wireEvents({
     void swapWorkoutExercise(slotIndex);
   });
 
-  document
-    .getElementById("slot-trigger-status")
-    .addEventListener("click", () => {
-      advanceOnboardingStep("pull_handle", "start_button");
-      launchExercise();
-    });
+  document.getElementById("slot-trigger-status").addEventListener("click", () => {
+    advanceOnboardingStep("pull_handle", "start_button");
+    launchExercise();
+  });
 
-  document
-    .getElementById("exercise-back")
-    .addEventListener("click", async (e) => {
-      openExitSessionModal(e.currentTarget);
-    });
+  document.getElementById("exercise-back").addEventListener("click", async (e) => {
+    openExitSessionModal(e.currentTarget);
+  });
 
-  document
-    .getElementById("sets-container")
-    .addEventListener("click", async (e) => {
-      const action = e.target.closest('[data-exercise-action="primary"]');
-      if (!action) return;
-      dismissKeyboard();
-      setTimeout(() => {
-        void handleExercisePrimaryAction();
-      }, 50);
-    });
+  document.getElementById("sets-container").addEventListener("click", async (e) => {
+    const action = e.target.closest('[data-exercise-action="primary"]');
+    if (!action) return;
+    dismissKeyboard();
+    setTimeout(() => {
+      void handleExercisePrimaryAction();
+    }, 50);
+  });
 
   document.getElementById("sets-container").addEventListener("input", (e) => {
     const input = e.target.closest("[data-field]");
@@ -121,29 +129,86 @@ export function wireEvents({
 
   document.getElementById("done-back-btn").addEventListener("click", goHome);
 
-  document
-    .getElementById("history-back")
-    .addEventListener("click", async () => {
-      showScreen("screen-day-picker");
-    });
+  document.getElementById("history-btn").addEventListener("click", () => {
+    renderHistory({ resetOffset: true });
+    showScreen("screen-history");
+  });
 
   document
-    .getElementById("history-more-btn")
-    .addEventListener("click", async () => {
-      showMoreHistory();
+    .getElementById("export-data-btn")
+    .addEventListener("click", exportWorkoutData);
+  document
+    .getElementById("import-data-input")
+    .addEventListener("change", async (event) => {
+      const input = event.currentTarget;
+      const file = input.files?.[0];
+      if (file) await importWorkoutData(file);
+      input.value = "";
     });
+
+  const closeResetDataModal = () => {
+    closeDialog(document.getElementById("reset-data-modal"));
+  };
+  document.getElementById("reset-data-btn").addEventListener("click", (event) => {
+    openDialog(document.getElementById("reset-data-modal"), event.currentTarget);
+  });
+  document
+    .getElementById("reset-data-cancel")
+    .addEventListener("click", closeResetDataModal);
+  document
+    .getElementById("reset-data-confirm")
+    .addEventListener("click", resetWorkoutData);
+  document.getElementById("reset-data-modal").addEventListener("click", (event) => {
+    if (event.target.id === "reset-data-modal") closeResetDataModal();
+  });
+
+  document.getElementById("history-back").addEventListener("click", async () => {
+    showScreen("screen-day-picker");
+  });
+
+  document.getElementById("history-more-btn").addEventListener("click", async () => {
+    showMoreHistory();
+  });
 
   document.getElementById("history-list").addEventListener("click", (e) => {
     const deleteBtn = e.target.closest("[data-history-delete]");
     if (deleteBtn) {
-      deleteHistoryEntry(Number(deleteBtn.dataset.historyDelete));
+      pendingHistoryDeleteId = deleteBtn.dataset.historyDelete;
+      const modal = document.getElementById("delete-history-modal");
+      if (modal) {
+        openDialog(modal, deleteBtn);
+      }
       return;
     }
 
     const toggle = e.target.closest(".history-expand-hint");
     if (!toggle) return;
     const card = toggle.closest(".history-card");
-    if (card) card.classList.toggle("expanded");
+    if (card) {
+      const expanded = card.classList.toggle("expanded");
+      toggle.setAttribute("aria-expanded", String(expanded));
+    }
+  });
+
+  const closeHistoryDeleteModal = () => {
+    pendingHistoryDeleteId = null;
+    const modal = document.getElementById("delete-history-modal");
+    closeDialog(modal);
+  };
+  document
+    .getElementById("delete-history-cancel")
+    .addEventListener("click", closeHistoryDeleteModal);
+  document.getElementById("delete-history-confirm").addEventListener("click", () => {
+    const deleted = pendingHistoryDeleteId
+      ? deleteHistoryEntry(pendingHistoryDeleteId)
+      : false;
+    closeHistoryDeleteModal();
+    if (deleted) document.getElementById("history-title")?.focus();
+  });
+  document.getElementById("delete-history-modal").addEventListener("click", (event) => {
+    if (event.target.id === "delete-history-modal") {
+      closeHistoryDeleteModal();
+    }
   });
 
   document
@@ -151,15 +216,13 @@ export function wireEvents({
     .addEventListener("click", closeExitSessionModal);
   document
     .getElementById("exit-session-resume-later")
-    .addEventListener("click", goHome);
+    .addEventListener("click", keepSessionAndGoHome);
   document
     .getElementById("exit-session-discard")
     .addEventListener("click", discardSessionAndGoHome);
-  document
-    .getElementById("exit-session-modal")
-    .addEventListener("click", (e) => {
-      if (e.target.id === "exit-session-modal") closeExitSessionModal();
-    });
+  document.getElementById("exit-session-modal").addEventListener("click", (e) => {
+    if (e.target.id === "exit-session-modal") closeExitSessionModal();
+  });
   document
     .getElementById("update-app-confirm")
     .addEventListener("click", applyAppUpdate);
@@ -191,10 +254,23 @@ export function wireEvents({
     }
   });
   document.addEventListener("keydown", (e) => {
+    if (
+      (e.key === "Enter" || e.key === " ") &&
+      e.target?.id === "done-sync" &&
+      typeof e.target.onclick === "function"
+    ) {
+      e.preventDefault();
+      e.target.click();
+      return;
+    }
     if (e.key !== "Escape") return;
     const modal = document.getElementById("exit-session-modal");
     if (modal?.classList.contains("show")) closeExitSessionModal();
     const updateModal = document.getElementById("update-app-modal");
     if (updateModal?.classList.contains("show")) closeUpdateAppModal();
+    const deleteModal = document.getElementById("delete-history-modal");
+    if (deleteModal?.classList.contains("show")) closeHistoryDeleteModal();
+    const resetModal = document.getElementById("reset-data-modal");
+    if (resetModal?.classList.contains("show")) closeResetDataModal();
   });
 }

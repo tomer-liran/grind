@@ -1,20 +1,23 @@
+import { getSessionDurationMinutes } from "../domain/session.js";
+import { getNextSupersetTarget, getSupersetGroupIndices } from "../domain/supersets.js";
+
 let runtime = {
   getSession: () => null,
   saveSession: () => {},
   clearSession: () => {},
-  markExerciseUsed: () => {},
   checkAndUpdatePR: () => ({}),
   getOverloadNudge: () => null,
   getLastWeight: () => null,
   getLatestCompletedExerciseEntry: () => null,
   getExerciseProgressSeries: () => [],
-  markDayComplete: () => {},
-  appendHistory: () => {},
+  commitCompletedSession: () => ({ ok: false }),
   buildSyncPayload: () => ({}),
   syncToSheets: () => {},
   showPROverlay: (_prs, onDone) => onDone(),
   renderDoneScreen: async () => {},
   showScreen: () => {},
+  showConfigurationError: () => {},
+  showStatus: () => {},
   fireConfetti: () => {},
   isOnboardingActive: () => false,
   finishOnboarding: () => {},
@@ -146,16 +149,27 @@ export function renderExerciseProgress() {
       let cls = "progress-dot";
       if (allDone) cls += " done-dot";
       else if (anyActive) cls += " active-dot";
-      dots.push(`<div class="${cls}"></div>`);
+      dots.push(`<span class="${cls}" aria-hidden="true"></span>`);
     } else {
       let cls = "progress-dot";
       if (index < session.slotIndex) cls += " done-dot";
       else if (index === session.slotIndex) cls += " active-dot";
-      dots.push(`<div class="${cls}"></div>`);
+      dots.push(`<span class="${cls}" aria-hidden="true"></span>`);
     }
   });
 
   strip.innerHTML = dots.join("");
+  strip.setAttribute("role", "progressbar");
+  strip.setAttribute("aria-valuemin", "1");
+  strip.setAttribute("aria-valuemax", String(session.slots.length));
+  strip.setAttribute(
+    "aria-valuenow",
+    String(Math.min(session.slotIndex + 1, session.slots.length)),
+  );
+  strip.setAttribute(
+    "aria-label",
+    `Exercise ${Math.min(session.slotIndex + 1, session.slots.length)} of ${session.slots.length}`,
+  );
 }
 
 export function renderSets() {
@@ -182,25 +196,32 @@ export function renderSets() {
   const inlineHint = isResting
     ? "Tap timer to skip rest"
     : `${loggedSets}/${session.currentSets.length} sets logged`;
+  const isBodyweight = Boolean(session.currentExercise?.bodyweight);
+  const weightControl = isBodyweight
+    ? `<div class="set-cell set-cell--bodyweight" aria-label="Bodyweight exercise">
+        <span class="set-cell-label title-block__eyebrow">Load</span>
+        <span class="set-input set-input--static">Bodyweight</span>
+      </div>`
+    : `<label class="set-cell" for="weight-${activeIdx}">
+        <span class="set-cell-label title-block__eyebrow">Weight</span>
+        <input class="set-input"
+          type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off"
+          placeholder="${escapeAttribute(activeSet.weight || "—")}"
+          value="${escapeAttribute(activeSet.weight || "")}"
+          ${isResting ? "disabled" : ""}
+          id="weight-${activeIdx}" data-idx="${activeIdx}" data-field="weight">
+      </label>`;
 
   container.innerHTML = `
     <div class="set-row card card--active fadein active-set focused-set" id="set-row-${activeIdx}">
       <div class="set-line" aria-label="Current set logger">
-        <label class="set-cell" for="weight-${activeIdx}">
-          <span class="set-cell-label title-block__eyebrow">Weight</span>
-          <input class="set-input"
-            type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off"
-            placeholder="${activeSet.weight || "—"}"
-            value="${activeSet.weight || ""}"
-            ${isResting ? "disabled" : ""}
-            id="weight-${activeIdx}" data-idx="${activeIdx}" data-field="weight">
-        </label>
+        ${weightControl}
         <label class="set-cell" for="reps-${activeIdx}">
           <span class="set-cell-label title-block__eyebrow">Reps</span>
           <input class="set-input"
             type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off"
             placeholder="—"
-            value="${activeSet.reps || ""}"
+            value="${escapeAttribute(activeSet.reps || "")}"
             ${isResting ? "disabled" : ""}
             id="reps-${activeIdx}" data-idx="${activeIdx}" data-field="reps">
         </label>
@@ -261,6 +282,14 @@ function getAutofillValue(value) {
   return normalized === "—" ? "" : normalized;
 }
 
+function escapeAttribute(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
 export function normalizeWeightValue(value) {
   const session = runtime.getSession();
   const normalized = String(value ?? "")
@@ -273,11 +302,7 @@ export function normalizeWeightValue(value) {
 }
 
 export function getInitialWeightValue(exercise, lastWeight) {
-  if (
-    lastWeight !== null &&
-    lastWeight !== undefined &&
-    String(lastWeight).trim()
-  ) {
+  if (lastWeight !== null && lastWeight !== undefined && String(lastWeight).trim()) {
     return String(lastWeight).trim();
   }
   return exercise?.bodyweight ? "BW" : "";
@@ -364,7 +389,12 @@ async function confirmCurrentSet(idx) {
   // Superset round-robin: if this slot belongs to a superset group, handle
   // the jump to the next partner (or complete the whole group) instead of the
   // normal single-exercise advance/rest path.
-  const supersetTarget = getNextSupersetTarget(session, idx);
+  const supersetGroup = getSupersetGroupIndices(session, session.slotIndex);
+  if (supersetGroup) {
+    session.partialSets ||= {};
+    session.partialSets[session.slotIndex] = session.currentSets;
+  }
+  const supersetTarget = getNextSupersetTarget(session);
   if (supersetTarget) {
     if (supersetTarget.type === "complete-all") {
       await completeSupersetGroup(supersetTarget.slotIndices);
@@ -372,9 +402,6 @@ async function confirmCurrentSet(idx) {
     }
 
     // type === "jump": persist current progress as partial state and switch slots.
-    session.partialSets = session.partialSets || {};
-    session.partialSets[session.slotIndex] = session.currentSets;
-
     if (supersetTarget.needsRest) {
       // Start rest BEFORE switching slots so it's anchored to the exercise
       // that just finished. launchExercise is called with keepRest so it
@@ -418,10 +445,7 @@ export async function handleExercisePrimaryAction() {
 
 export function dismissKeyboard() {
   const active = document.activeElement;
-  if (
-    active instanceof HTMLInputElement ||
-    active instanceof HTMLTextAreaElement
-  ) {
+  if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
     active.blur();
   }
 }
@@ -511,9 +535,7 @@ function buildMiniGraphMarkup(points) {
   });
 
   const linePath = coords
-    .map((point, index) =>
-      `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`,
-    )
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
     .join(" ");
   const areaPath = `${linePath} L ${coords.at(-1).x} ${chartBottom} L ${coords[0].x} ${chartBottom} Z`;
   const gridLines = yTicks
@@ -548,7 +570,7 @@ function buildMiniGraphMarkup(points) {
     <svg
       class="exercise-mini-graph-svg"
       viewBox="0 0 ${width} ${height}"
-      preserveAspectRatio="none"
+      preserveAspectRatio="xMidYMid meet"
       role="img"
       aria-label="Exercise progress chart showing ${points.length} past sessions by ${unitLabel}."
     >
@@ -573,7 +595,10 @@ function renderExerciseMiniGraph(exercise) {
   if (!graphEl || !graphStageEl || !exercise) return;
 
   const series = runtime
-    .getExerciseProgressSeries(exercise.name, Boolean(exercise.bodyweight))
+    .getExerciseProgressSeries(
+      exercise.id ?? exercise.name,
+      Boolean(exercise.bodyweight),
+    )
     .map((point) => ({
       ...point,
       unit: exercise.bodyweight ? "reps" : "weight",
@@ -636,7 +661,8 @@ function getSupersetTag(slots, slot) {
 
 function populateExerciseScreen(exercise, slot) {
   const session = runtime.getSession();
-  const nudge = runtime.getOverloadNudge(exercise.name);
+  const exerciseKey = exercise.id ?? exercise.name;
+  const nudge = runtime.getOverloadNudge(exerciseKey);
   const nudgeEl = document.getElementById("overload-nudge");
   if (nudgeEl) {
     if (nudge) {
@@ -658,7 +684,9 @@ function populateExerciseScreen(exercise, slot) {
   document.getElementById("ex-tip").textContent = exercise.tip;
   renderExerciseMiniGraph(exercise);
 
-  document.getElementById("pr-overlay").classList.remove("show");
+  const prOverlay = document.getElementById("pr-overlay");
+  prOverlay?.classList.remove("show");
+  prOverlay?.setAttribute("aria-hidden", "true");
   renderExerciseProgress();
   renderSets();
   syncExercisePrimaryAction();
@@ -668,8 +696,7 @@ function populateExerciseScreen(exercise, slot) {
 
 export function launchExercise(options = {}) {
   // Defensive: callers may pass unexpected positional args (e.g. callbacks).
-  const keepRest =
-    options && typeof options === "object" && options.keepRest === true;
+  const keepRest = options && typeof options === "object" && options.keepRest === true;
 
   const session = runtime.getSession();
   if (!session.pickedExercises?.length) runtime.pickAllExercises?.();
@@ -679,7 +706,9 @@ export function launchExercise(options = {}) {
   const exercise = session.pickedExercises[session.slotIndex];
   const slot = session.slots[session.slotIndex];
   if (!exercise || !slot) {
-    finishSession();
+    runtime.showConfigurationError(
+      "This workout could not be loaded because an exercise slot is invalid.",
+    );
     return;
   }
 
@@ -693,15 +722,12 @@ export function launchExercise(options = {}) {
   if (Array.isArray(partial) && partial.length > 0) {
     session.currentSets = partial;
   } else {
-    const previousEntry = runtime.getLatestCompletedExerciseEntry(exercise.name);
+    const exerciseKey = exercise.id ?? exercise.name;
+    const previousEntry = runtime.getLatestCompletedExerciseEntry(exerciseKey);
     const previousSets = previousEntry?.sets || [];
     const lastWeight =
-      previousSets.length > 0 ? null : runtime.getLastWeight(exercise.name);
-    session.currentSets = buildInitialCurrentSets(
-      exercise,
-      previousSets,
-      lastWeight,
-    );
+      previousSets.length > 0 ? null : runtime.getLastWeight(exerciseKey);
+    session.currentSets = buildInitialCurrentSets(exercise, previousSets, lastWeight);
   }
 
   runtime.saveSession();
@@ -716,51 +742,6 @@ export function resumeCurrentExercise() {
   runtime.advanceOnboardingStep("start_button", "exercise_log");
   populateExerciseScreen(exercise, slot);
   runtime.resumeRestIfNeeded();
-}
-
-function getSupersetGroupIndices(session, slotIdx) {
-  const slot = session.slots[slotIdx];
-  if (!slot?.supersetGroup) return null;
-  return session.slots
-    .map((s, i) => (s.supersetGroup === slot.supersetGroup ? i : -1))
-    .filter((i) => i !== -1);
-}
-
-// Determines what should happen after logging `loggedSetIdx` in a superset slot.
-// Returns null when the current slot is not part of a superset.
-// Return shapes:
-//   { type: "jump", slotIndex, needsRest }  — switch to another slot in the group
-//   { type: "complete-all", slotIndices }   — the whole superset group is done
-function getNextSupersetTarget(session, loggedSetIdx) {
-  const slotIdx = session.slotIndex;
-  const groupIndices = getSupersetGroupIndices(session, slotIdx);
-  if (!groupIndices) return null;
-
-  const posInGroup = groupIndices.indexOf(slotIdx);
-
-  // More partners after the current one in the group → jump with no rest.
-  // This is the "A1 → A2" transition inside a single superset round.
-  if (posInGroup < groupIndices.length - 1) {
-    return {
-      type: "jump",
-      slotIndex: groupIndices[posInGroup + 1],
-      needsRest: false,
-    };
-  }
-
-  // We just finished the last partner in the group. Decide between:
-  //   - completing the whole group (if that was also the last set), or
-  //   - starting another round (go back to the first partner with rest)
-  const isLastSet = loggedSetIdx === session.currentSets.length - 1;
-  if (isLastSet) {
-    return { type: "complete-all", slotIndices: groupIndices };
-  }
-
-  return {
-    type: "jump",
-    slotIndex: groupIndices[0],
-    needsRest: true,
-  };
 }
 
 async function completeSupersetGroup(slotIndices) {
@@ -783,14 +764,16 @@ async function completeSupersetGroup(slotIndices) {
     const sets =
       idx === session.slotIndex
         ? session.currentSets
-        : session.partialSets?.[idx] ?? [];
+        : (session.partialSets?.[idx] ?? []);
 
-    const prs = runtime.checkAndUpdatePR(exercise.name, sets);
+    const exerciseKey = exercise.id ?? exercise.name;
+    const prs = runtime.checkAndUpdatePR(exerciseKey, sets);
     Object.assign(aggregatedPRs, prs);
-    runtime.markExerciseUsed(slot.key, exercise.name, session.weekKey);
 
     session.entries.push({
+      exerciseId: exercise.id ?? null,
       exerciseName: exercise.name,
+      categoryKey: slot.key,
       categoryLabel: slot.label,
       sets: sets.map((set) => ({ weight: set.weight, reps: set.reps })),
       timestamp: new Date().toISOString(),
@@ -840,11 +823,13 @@ async function completeExercise() {
   const slot = session.currentSlot;
   if (!exercise || !slot) return;
 
-  const prs = runtime.checkAndUpdatePR(exercise.name, session.currentSets);
-  runtime.markExerciseUsed(slot.key, exercise.name, session.weekKey);
+  const exerciseKey = exercise.id ?? exercise.name;
+  const prs = runtime.checkAndUpdatePR(exerciseKey, session.currentSets);
 
   session.entries.push({
+    exerciseId: exercise.id ?? null,
     exerciseName: exercise.name,
+    categoryKey: slot.key,
     categoryLabel: slot.label,
     sets: session.currentSets.map((set) => ({ weight: set.weight, reps: set.reps })),
     timestamp: new Date().toISOString(),
@@ -876,25 +861,23 @@ async function completeExercise() {
 
 function finishSession() {
   const session = runtime.getSession();
-  const duration = Math.round((Date.now() - new Date(session.startTime)) / 60000);
+  if (!session) return;
+  const duration = getSessionDurationMinutes(session);
   const totalSets = session.entries.reduce((sum, entry) => sum + entry.sets.length, 0);
   const templateId = session.templateId;
-  const weekKey = session.weekKey;
   const payload = runtime.buildSyncPayload(duration, totalSets);
-
-  runtime.markDayComplete(templateId, weekKey);
-  runtime.appendHistory({
-    date: new Date().toLocaleDateString("en-GB"),
-    templateId,
-    weekKey,
-    durationMinutes: duration,
-    totalSets,
-    entries: session.entries,
-    timestamp: new Date().toISOString(),
-  });
+  const committed = runtime.commitCompletedSession(session, duration);
+  if (!committed.ok) {
+    runtime.showStatus(
+      "Could not save this workout. It is still open so you can retry safely.",
+      "error",
+    );
+    return;
+  }
 
   const sessionPRs = session.entries.flatMap((entry) =>
     Object.entries(entry.prs || {}).map(([type, data]) => ({
+      exerciseId: entry.exerciseId,
       exerciseName: entry.exerciseName,
       type,
       ...data,
@@ -902,8 +885,9 @@ function finishSession() {
   );
   const sessionNudges = session.entries
     .map((entry) => ({
+      exerciseId: entry.exerciseId,
       exerciseName: entry.exerciseName,
-      nudge: runtime.getOverloadNudge(entry.exerciseName),
+      nudge: runtime.getOverloadNudge(entry.exerciseId ?? entry.exerciseName),
     }))
     .filter((entry) => entry.nudge !== null);
 

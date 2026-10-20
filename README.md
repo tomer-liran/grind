@@ -1,168 +1,179 @@
 # Grind
 
-> Open-source workout PWA. Fork it, edit one file to match the gear in your gym, and train.
+> An offline-first workout PWA with structured variety, fast set logging, and
+> no account required.
 
-Grind is a minimalist hypertrophy app built around an **A/B/C full-body split** with built-in exercise variation, set/PR logging, and a session-reveal flow that picks the day's exercises for you so you stop deciding in the squat rack.
+[![CI](https://github.com/tomer-liran/grind/actions/workflows/ci.yml/badge.svg)](https://github.com/tomer-liran/grind/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-6ce7d0.svg)](LICENSE)
+[![PWA](https://img.shields.io/badge/PWA-offline--first-f1e4c8.svg)](vite.config.mjs)
 
-The whole exercise list lives in a single file — **`src/data/workouts.js`** — so adjusting Grind to a home gym, a hotel gym, a cable-only setup, or a barbell-only setup is mostly a matter of editing a few arrays.
+Grind runs an A/B/C full-body split. It chooses one exercise for each movement
+slot, lets you swap anything before training, logs sets and rest, and derives
+personal-best and overload signals from completed sessions.
+
+The project is deliberately small: vanilla JavaScript, Vite, CSS, and browser
+storage. Fork it, edit one file to match your equipment, and deploy it to any
+static host.
 
 ## Screenshots
 
-| Home | Session reveal | Exercise log | Session complete |
-|---|---|---|---|
-| ![Home — week view with A/B/C workouts](screenshots/homepage.png) | ![Session — exercises picked for Full Body B](screenshots/workout_generator.png) | ![Exercise — set logger with tips](screenshots/exercise.png) | ![Done — PR recap and stats](screenshots/workout_complete.png) |
+| Home                                                               | Workout plan                                                                | Set logging                                                      | Session complete                                                             |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| ![Choose a Full Body A, B, or C session](screenshots/homepage.png) | ![Review and swap the generated workout](screenshots/workout_generator.png) | ![Log weight and reps for an exercise](screenshots/exercise.png) | ![Review workout stats and personal bests](screenshots/workout_complete.png) |
 
-## What it does
+## What works
 
-- **A/B/C split.** Three full-body workouts per week. Each day defines a sequence of movement slots (lower-quad, push-horizontal, pull-vertical, …).
-- **Session reveal.** Tap a workout and Grind picks one exercise per slot from the matching pool, with a slot-machine-style reveal. Swap individual exercises or reshuffle the whole workout if you don't like what came up.
-- **Set logging.** Weight × reps per set, last weight pre-filled, with a coaching tip per exercise.
-- **Rest timer.** Per-exercise rest with a timestamp-based clock that survives screen lock and tab switch.
-- **PR tracking.** Tracks max single-set weight and session volume per exercise. Hits get a badge on the done screen.
-- **Progressive-overload nudge.** Three sessions at the same weight on the same exercise → "+2.5kg" suggestion.
-- **History.** Every session saved locally; expandable per-exercise breakdown.
-- **Offline-first PWA.** Installable to home screen on iOS and Android. All state lives in `localStorage` — no account, no server, no tracking.
-- **Optional sync.** Drop in an n8n webhook URL and Grind will POST a session summary at the end of each workout. Off by default.
+- **Structured variety** — fixed movement patterns with randomized exercises;
+  repeats are avoided until a category pool is exhausted.
+- **Fast logging** — per-set weight and reps, bodyweight-aware inputs, previous
+  values, background-safe rest timers, and superset rounds.
+- **Progress** — max-weight and volume PRs, estimated one-rep-max charts, and a
+  conservative three-session overload prompt.
+- **Reliable local data** — versioned state, legacy migration, atomic session
+  completion, recoverable write failures, and backup import/export.
+- **Training log** — expandable history, safe deletion, undo, and projection
+  rebuilds for weekly completion and PRs.
+- **Offline PWA** — installable, self-contained artwork, no third-party fonts,
+  and no analytics.
+- **Optional sync** — an idempotent webhook outbox with retry/backoff. Disabled
+  by default.
+- **Accessible interaction** — semantic controls, keyboard navigation, dialog
+  focus management, 200% zoom support, 44px targets, and reduced motion.
 
-## Customize your exercises
+## Run locally
 
-Everything you'd want to change for your own training lives in **`src/data/workouts.js`**.
-
-### Exercise pools — `EXERCISES`
-
-Each movement category is a key with an array of exercises. The session reveal picks randomly from the matching pool, never repeating an exercise twice in the same week.
-
-```js
-export const EXERCISES = {
-  "lower-quad": [
-    {
-      name: "Dumbbell Goblet Squat",
-      sets: 3,
-      repsRange: "12–15",
-      restSeconds: 90,
-      tip: "Pause for a second at the bottom and push your knees out as you stand.",
-    },
-    // add as many alternatives as you want
-  ],
-  // ...other categories
-};
-```
-
-Exercise object fields:
-
-| Field | Type | Notes |
-|---|---|---|
-| `name` | string | Display name. Used as the PR identifier — rename carefully (PRs are keyed by name). |
-| `sets` | number | Working sets. |
-| `repsRange` | string | Free-form, e.g. `"6–10"`, `"8–12"`, `"20–24 steps"`. |
-| `restSeconds` | number | Default rest timer between sets. |
-| `tip` | string | Coaching cue shown on the exercise screen. |
-| `bodyweight` | boolean? | Optional. Hides the weight input on the logger and tracks reps only. |
-
-### Categories used out of the box
-
-`lower-quad`, `lower-hinge`, `lower-glute`, `push-horizontal`, `push-vertical`, `pull-horizontal`, `pull-vertical`, `arms-bicep`, `arms-tricep`, `core`, `accessory`, `calves`.
-
-Add your own categories freely — just make sure any new category key is referenced from a day's `slots` in `DAYS` below.
-
-### Day templates — `DAYS`
-
-A/B/C each define a slot sequence. Each slot points at a category and gets a display label.
-
-```js
-export const DAYS = {
-  A: {
-    name: "Full Body A",
-    slots: [
-      { key: "lower-quad",      label: "LOWER · QUAD" },
-      { key: "push-horizontal", label: "PUSH · HORIZONTAL" },
-      { key: "pull-vertical",   label: "PULL · VERTICAL" },
-      { key: "lower-hinge",     label: "LOWER · HINGE" },
-      { key: "pull-horizontal", label: "PULL · HORIZONTAL" },
-      { key: "core",            label: "CORE",   supersetGroup: "core-calves-a" },
-      { key: "calves",          label: "CALVES", supersetGroup: "core-calves-a" },
-    ],
-  },
-  // B, C...
-};
-```
-
-Two notes:
-
-- A day can repeat the same category in multiple slots — the spin guarantees a distinct exercise per slot when it does.
-- Adjacent slots with the same `supersetGroup` are surfaced as a superset pair in the UI.
-
-### Worked example — cable-only home setup
-
-```js
-// in src/data/workouts.js
-EXERCISES["push-horizontal"] = [
-  { name: "Cable Chest Press",        sets: 4, repsRange: "8–12", restSeconds: 90, tip: "Drive both handles forward together." },
-  { name: "Single-Arm Cable Press",   sets: 3, repsRange: "10–12 each", restSeconds: 75, tip: "Resist rotation as you press." },
-  { name: "Cable Crossover",          sets: 3, repsRange: "12–15", restSeconds: 60, tip: "Squeeze at the midline, slow eccentric." },
-];
-```
-
-Run `npm run dev`, pick a workout, and your new exercises will start showing up immediately.
-
-## Running locally
+Requirements: Node.js `^20.19.0` or `>=22.12.0`.
 
 ```bash
-npm install
-npm run dev      # start the dev server on http://localhost:5173
-npm run build    # produce a production build in dist/
-npm run preview  # serve dist/ locally to sanity-check the build
+git clone https://github.com/tomer-liran/grind.git
+cd grind
+npm ci
+npm run dev
 ```
 
-## Self-hosting
+Open `http://localhost:5173`.
 
-`npm run build` produces a static, framework-free PWA in `dist/`. Drop it on any static host:
+```bash
+npm run check      # format, lint, types, unit tests, repo validation, build
+npm run test:e2e   # Chromium and WebKit mobile flows
+npm run preview    # preview the production PWA
+```
 
-- **Vercel / Netlify / Cloudflare Pages** — point at the repo, build command `npm run build`, output directory `dist`.
-- **GitHub Pages** — push `dist/` to a `gh-pages` branch.
-- **Anywhere else** — `dist/` is just static files; serve it with anything that serves HTML.
+## Customize the workout
 
-Once deployed, open the URL on your phone and **Add to Home Screen** — Grind is installable as a PWA on iOS and Android.
+All workout content lives in [`src/data/workouts.js`](src/data/workouts.js).
+Each exercise has a stable ID, display name, prescription, rest duration, and
+coaching cue:
 
-### Optional: session sync
+```js
+{
+  id: "cable-chest-press",
+  name: "Cable Chest Press",
+  sets: 4,
+  repsRange: "8–12",
+  restSeconds: 90,
+  tip: "Drive both handles forward together.",
+}
+```
 
-Grind can POST a session summary at the end of each workout. To enable it, edit `DEFAULT_CONFIG` in `src/config.js` to point at your own n8n webhook (or any endpoint that accepts a JSON POST). Off by default.
+Add it to a category pool, or create a new category and reference that key from
+a slot in `DAYS`.
 
-## Tech stack
+Stable IDs matter: history and PRs use `id`, so a display name can change
+without breaking progress. Do not reuse or casually replace an existing ID.
+Validation fails when a pool is empty, an ID is duplicated, or a slot points to
+missing data.
 
-- **Vanilla JS** (ES2022 modules) — no framework
-- **Vite** + `vite-plugin-pwa` for dev server, bundling, and service worker
-- **Custom CSS** in `src/styles/app.css` — no component library
-- **`localStorage`** for week state, active sessions, history, PRs, and an offline sync queue
+Adjacent slots with the same `supersetGroup` are trained round-robin:
 
-## Project structure
+```js
+{ id: "c-arms-tricep", key: "arms-tricep", label: "ARMS · TRICEP", supersetGroup: "arms-c" },
+{ id: "c-arms-bicep", key: "arms-bicep", label: "ARMS · BICEP", supersetGroup: "arms-c" },
+```
+
+## Data, privacy, and backups
+
+Grind has no account and no first-party server. Its canonical state is a
+versioned `grind:state` record in `localStorage`. On first launch after an
+upgrade, legacy `grind:*` records are imported without deleting the originals.
+
+Use **Export** on the Home screen before clearing browser data or testing a
+migration. **Import** accepts a Grind JSON backup. **Reset** removes both the
+current state and legacy Grind records on that device.
+
+The default build makes no runtime requests beyond its own static files.
+
+### Optional webhook sync
+
+Edit [`src/config.js`](src/config.js) to enable sync:
+
+```js
+export const DEFAULT_CONFIG = {
+  versionLabel: `v${__APP_VERSION__}`,
+  webhookUrl: "https://your-endpoint.example/workouts",
+  dryRun: false,
+};
+```
+
+The browser sends session ID, date, template, duration, sets, volume, PR flags,
+and timestamps. The session ID is also sent as an `Idempotency-Key` header.
+Failed deliveries remain in a bounded local outbox and retry when the app is
+online.
+
+A URL bundled into client JavaScript is not a secret. The endpoint must handle
+authentication, CORS, rate limiting, validation, and idempotency.
+
+## Architecture
 
 ```text
-grind/
-  index.html
-  src/
-    main.js          # browser entrypoint, app boot, service worker, test harness
-    app/
-      runtime.js     # session flow, spin logic, exercise logging, history
-    data/
-      workouts.js    # EXERCISES (pools) + DAYS (A/B/C templates)  ← edit this
-    lib/
-      storage.js     # guarded localStorage helpers
-    styles/
-      app.css        # all styles
-    config.js        # version label + webhook defaults
-  docs/
-    ARCHITECTURE.md  # storage schema, screen flow, module boundaries
-  screenshots/
-  vite.config.mjs
+src/
+  domain/          pure calendar, session, superset, progress, plan rules
+  infrastructure/  versioned state migration and atomic repository operations
+  app/             browser orchestration, screens, logging, sync, history
+  ui/              reusable dialog/focus behavior
+  data/            workout catalog and A/B/C templates
+  styles/          tokens, base, components, and screens
+tests/
+  *.test.js        Vitest domain and repository coverage
+  e2e/             Playwright mobile flows and accessibility checks
 ```
 
-For the storage schema, screen flow, and module boundaries, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the state model,
+transaction boundaries, and sync flow. See [`docs/LOGIC.md`](docs/LOGIC.md) for
+the core algorithms.
+
+## Self-host
+
+`npm run build` writes a static site to `dist/`.
+
+- Vercel, Netlify, or Cloudflare Pages: build `npm run build`, publish `dist`
+- GitHub Pages: enable Pages and use a static deployment workflow
+- Any web server: serve `dist` with SPA fallback to `index.html`
+
+HTTPS is required for service workers outside localhost. Installability and
+storage eviction rules still vary by browser and operating system.
+
+## Browser support and limitations
+
+CI covers current Chromium and WebKit mobile engines. Current Firefox should
+work, but is not yet in the automated browser matrix.
+
+Current product limits:
+
+- Display and overload increments are kilogram-oriented.
+- Data does not sync between devices unless you configure a webhook.
+- Browser storage can be evicted; export backups for data you care about.
+- Exercise suggestions assume the equipment described in the checked-in pools.
+
+Grind is a logging tool, not medical advice. Train within your experience and
+seek qualified guidance for pain, injury, or health concerns.
+
+## Contributing
+
+Start with [`CONTRIBUTING.md`](CONTRIBUTING.md). Security reports belong in the
+private channel described in [`SECURITY.md`](SECURITY.md); usage questions
+belong in [`SUPPORT.md`](SUPPORT.md).
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Free to fork, modify, and run for personal or commercial use.
-
----
-
-Built by [Tomer Liran](https://github.com/tomer-liran).
+[MIT](LICENSE) © Tomer Liran.

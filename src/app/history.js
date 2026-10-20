@@ -1,42 +1,39 @@
 import { DAYS } from "../data/workouts.js";
-import { storageGet, storageSet } from "../lib/storage.js";
 import {
-  DAY_TEMPLATES,
-  getHistoryEntryWeekday,
-  getStoredWeekKeys,
-  loadWeek,
-  saveWeek,
-} from "./week-store.js";
+  deleteCompletedSession,
+  restoreCompletedSession,
+} from "../infrastructure/state-repository.js";
+import { storageGet, storageSet } from "../lib/storage.js";
 import { formatWeightLabel, parseWeight } from "./prs.js";
 
 let runtime = {
   renderDayPicker: () => {},
   showSyncBar: () => {},
 };
+let historyOffset = 30;
+let lastDeleted = null;
 
 export function initHistory(deps = {}) {
-  runtime = {
-    ...runtime,
-    ...deps,
-  };
+  runtime = { ...runtime, ...deps };
 }
 
 export function loadHistory() {
-  return storageGet("grind:history", []);
+  const history = storageGet("grind:history", []);
+  return Array.isArray(history) ? history : [];
 }
 
 export function saveHistory(entries) {
-  storageSet("grind:history", entries);
+  return storageSet("grind:history", entries);
 }
 
 export function appendHistory(entry) {
   const history = loadHistory();
   history.push(entry);
-  saveHistory(history);
+  return saveHistory(history);
 }
 
 export function getLatestCompletedExerciseEntry(
-  exerciseName,
+  exerciseIdOrName,
   historyEntries = loadHistory(),
 ) {
   for (
@@ -44,19 +41,21 @@ export function getLatestCompletedExerciseEntry(
     historyIndex >= 0;
     historyIndex -= 1
   ) {
-    const sessionEntry = historyEntries[historyIndex];
-    const entries = sessionEntry?.entries || [];
-
+    const entries = historyEntries[historyIndex]?.entries || [];
     for (let entryIndex = entries.length - 1; entryIndex >= 0; entryIndex -= 1) {
       const exerciseEntry = entries[entryIndex];
-      if (exerciseEntry?.exerciseName !== exerciseName) continue;
+      if (
+        exerciseEntry?.exerciseId !== exerciseIdOrName &&
+        exerciseEntry?.exerciseName !== exerciseIdOrName
+      ) {
+        continue;
+      }
       return {
         ...exerciseEntry,
         sets: (exerciseEntry.sets || []).map((set) => ({ ...set })),
       };
     }
   }
-
   return null;
 }
 
@@ -72,48 +71,39 @@ export function getLatestCompletedTemplateEntry(
     const sessionEntry = historyEntries[historyIndex];
     if (sessionEntry?.templateId === templateId) return sessionEntry;
   }
-
   return null;
 }
 
 export function getExerciseProgressSeries(
-  exerciseName,
+  exerciseIdOrName,
   isBodyweight = false,
   historyEntries = loadHistory(),
 ) {
   return historyEntries
     .flatMap((sessionEntry) =>
       (sessionEntry?.entries || [])
-        .filter((exerciseEntry) => exerciseEntry?.exerciseName === exerciseName)
+        .filter(
+          (entry) =>
+            entry?.exerciseId === exerciseIdOrName ||
+            entry?.exerciseName === exerciseIdOrName,
+        )
         .map((exerciseEntry) => {
           const sets = exerciseEntry.sets || [];
-          let value;
+          const value = isBodyweight
+            ? sets.reduce((sum, set) => sum + (Number.parseInt(set.reps, 10) || 0), 0)
+            : Math.max(
+                ...sets
+                  .map((set) => {
+                    const weight = parseWeight(set.weight);
+                    const reps = Number.parseInt(set.reps, 10);
+                    if (weight === null) return Number.isFinite(reps) ? reps : 0;
+                    return reps > 0 ? weight * (1 + reps / 30) : weight;
+                  })
+                  .filter((point) => Number.isFinite(point) && point > 0),
+                0,
+              );
 
-          if (isBodyweight) {
-            // BW exercises: total reps across all sets
-            value = sets.reduce(
-              (sum, set) => sum + (parseInt(set.reps, 10) || 0),
-              0,
-            );
-          } else {
-            // Weighted exercises: best estimated 1RM (Epley: w × (1 + r/30))
-            // captures both weight AND rep progression in one number.
-            // Falls back to reps when weight is BW/unlogged.
-            const e1RMs = sets
-              .map((set) => {
-                const w = parseWeight(set.weight);
-                const r = parseInt(set.reps, 10);
-                if (w !== null && Number.isFinite(w)) {
-                  return Number.isFinite(r) && r > 0 ? w * (1 + r / 30) : w;
-                }
-                return Number.isFinite(r) && r > 0 ? r : null;
-              })
-              .filter((v) => v !== null);
-
-            value = e1RMs.length > 0 ? Math.max(...e1RMs) : NaN;
-          }
-
-          return Number.isFinite(value) && value > 0
+          return value > 0
             ? {
                 value,
                 date: sessionEntry.date,
@@ -125,144 +115,68 @@ export function getExerciseProgressSeries(
     .filter(Boolean);
 }
 
-let historyOffset = 30;
-
-export function rebuildPRStateFromHistory(historyEntries = loadHistory()) {
-  const previousPR = storageGet("grind:pr", {});
-  const nextPR = {};
-
-  historyEntries.forEach((sessionEntry) => {
-    (sessionEntry.entries || []).forEach((exerciseEntry) => {
-      const numericWeights = exerciseEntry.sets
-        .map((set) => parseWeight(set.weight))
-        .filter((weight) => weight !== null);
-
-      if (numericWeights.length === 0) return;
-
-      const maxSetWeight = Math.max(...numericWeights);
-      const sessionVolume = exerciseEntry.sets.reduce(
-        (sum, set) => sum + (parseWeight(set.weight) ?? 0) * (parseInt(set.reps) || 0),
-        0,
-      );
-      const exerciseName = exerciseEntry.exerciseName;
-
-      if (!nextPR[exerciseName]) {
-        nextPR[exerciseName] = {
-          maxWeight: 0,
-          maxVolume: 0,
-          sessions: [],
-        };
-      }
-
-      nextPR[exerciseName].maxWeight = Math.max(
-        nextPR[exerciseName].maxWeight,
-        maxSetWeight,
-      );
-      nextPR[exerciseName].maxVolume = Math.max(
-        nextPR[exerciseName].maxVolume,
-        sessionVolume,
-      );
-      nextPR[exerciseName].lastWeight = String(maxSetWeight);
-      nextPR[exerciseName].sessions.push({
-        date: sessionEntry.date,
-        weekKey: sessionEntry.weekKey ?? null,
-        maxSetWeight,
-        sessionVolume,
-      });
-    });
-  });
-
-  Object.entries(nextPR).forEach(([exerciseName, data]) => {
-    data.sessions = data.sessions.slice(-52);
-    if (previousPR[exerciseName]?.lastNudgeDate) {
-      data.lastNudgeDate = previousPR[exerciseName].lastNudgeDate;
-    }
-  });
-
-  storageSet("grind:pr", nextPR);
-}
-
-export function rebuildWeekCompletionFromHistory(historyEntries = loadHistory()) {
-  const completionByWeek = {};
-
-  historyEntries.forEach((entry) => {
-    if (!entry?.weekKey || !DAY_TEMPLATES.includes(entry.templateId)) return;
-    if (!completionByWeek[entry.weekKey]) completionByWeek[entry.weekKey] = {};
-    completionByWeek[entry.weekKey][entry.templateId] =
-      getHistoryEntryWeekday(entry);
-  });
-
-  const allWeekKeys = new Set([
-    ...getStoredWeekKeys(),
-    ...Object.keys(completionByWeek),
-  ]);
-
-  allWeekKeys.forEach((weekKey) => {
-    const week = loadWeek(weekKey);
-    const completedByTemplate = completionByWeek[weekKey] || {};
-    const completed = DAY_TEMPLATES.filter(
-      (templateId) => templateId in completedByTemplate,
-    );
-
-    week.completed = completed;
-    week.completedByTemplate = completed.reduce((acc, templateId) => {
-      const weekday = completedByTemplate[templateId];
-      if (weekday) acc[templateId] = weekday;
-      return acc;
-    }, {});
-    week.completedWeekdays = Array.from(
-      new Set(
-        completed
-          .map((templateId) => completedByTemplate[templateId])
-          .filter(Boolean),
-      ),
-    );
-
-    saveWeek(weekKey, week);
-  });
-}
-
-export function deleteHistoryEntry(historyIndex) {
+export function deleteHistoryEntry(sessionIdOrIndex) {
   const history = loadHistory();
-  if (historyIndex < 0 || historyIndex >= history.length) return;
+  const sessionId =
+    typeof sessionIdOrIndex === "number"
+      ? history[sessionIdOrIndex]?.id
+      : sessionIdOrIndex;
+  if (!sessionId) return false;
 
-  history.splice(historyIndex, 1);
-  saveHistory(history);
-  rebuildPRStateFromHistory(history);
-  rebuildWeekCompletionFromHistory(history);
-  historyOffset = Math.min(historyOffset, Math.max(30, history.length));
+  const transaction = deleteCompletedSession(sessionId);
+  if (!transaction.ok || !transaction.result) {
+    runtime.showSyncBar("Could not delete this session.", "error");
+    return false;
+  }
+
+  lastDeleted = transaction.result;
+  historyOffset = Math.min(historyOffset, Math.max(30, history.length - 1));
   renderHistory();
   runtime.renderDayPicker();
-  runtime.showSyncBar("History entry deleted", "success");
+  runtime.showSyncBar("History entry deleted.", "success", {
+    label: "Undo",
+    onClick: undoLastHistoryDeletion,
+  });
+  return true;
+}
+
+export function undoLastHistoryDeletion() {
+  if (!lastDeleted) return false;
+  const transaction = restoreCompletedSession(lastDeleted.entry, lastDeleted.index);
+  if (!transaction.ok || !transaction.result) {
+    runtime.showSyncBar("Could not restore that session.", "error");
+    return false;
+  }
+
+  lastDeleted = null;
+  renderHistory();
+  runtime.renderDayPicker();
+  runtime.showSyncBar("Session restored.", "success");
+  return true;
 }
 
 export function renderHistory({ resetOffset = false } = {}) {
   if (resetOffset) historyOffset = 30;
   const all = loadHistory();
   const list = document.getElementById("history-list");
-  const moreBtn = document.getElementById("history-more-btn");
-  if (!list || !moreBtn) return;
+  const moreButton = document.getElementById("history-more-btn");
+  if (!list || !moreButton) return;
 
   if (all.length === 0) {
     list.innerHTML = `
       <div class="history-empty">
-        <div class="history-empty-icon">◎</div>
+        <div class="history-empty-icon" aria-hidden="true">◎</div>
         <div class="history-empty-title">No sessions yet</div>
         <div class="history-empty-copy">Finish your first session and your recent training will show up here.</div>
       </div>`;
-    moreBtn.style.display = "none";
+    moreButton.hidden = true;
     return;
   }
 
   historyOffset = Math.min(historyOffset, Math.max(30, all.length));
-  const visible = all
-    .map((session, index) => ({ session, index }))
-    .slice(-historyOffset)
-    .reverse();
-  list.innerHTML = visible
-    .map(({ session, index }) => renderHistoryCard(session, index))
-    .join("");
-  moreBtn.style.display = all.length > historyOffset ? "block" : "none";
+  const visible = all.slice(-historyOffset).reverse();
+  list.innerHTML = visible.map(renderHistoryCard).join("");
+  moreButton.hidden = all.length <= historyOffset;
 }
 
 export function showMoreHistory() {
@@ -270,74 +184,87 @@ export function showMoreHistory() {
   renderHistory();
 }
 
-function renderHistoryCard(sessionEntry, historyIndex) {
+function renderHistoryCard(sessionEntry) {
   const day = DAYS[sessionEntry.templateId];
   const dayName = day?.name ?? `Day ${sessionEntry.templateId}`;
-  const entries = sessionEntry.entries ?? [];
-
+  const entries = Array.isArray(sessionEntry.entries) ? sessionEntry.entries : [];
+  const sessionId = escapeHtml(sessionEntry.id);
+  const detailId = `history-detail-${sessionId}`;
   const sessionVolume = entries.reduce(
     (total, entry) =>
       total +
-      entry.sets.reduce(
-        (sum, set) => sum + (parseWeight(set.weight) ?? 0) * (parseInt(set.reps) || 0),
+      (entry.sets || []).reduce(
+        (sum, set) =>
+          sum + (parseWeight(set.weight) ?? 0) * (Number.parseInt(set.reps, 10) || 0),
         0,
       ),
     0,
   );
-
   const prEntries = entries.filter((entry) => Object.keys(entry.prs || {}).length > 0);
   const prLine =
     prEntries.length > 0
-      ? `<div class="history-card-prs">✦ PRs: ${prEntries.map((entry) => entry.exerciseName).join(", ")}</div>`
+      ? `<div class="history-card-prs">✦ PRs: ${prEntries.map((entry) => escapeHtml(entry.exerciseName)).join(", ")}</div>`
       : "";
-
-  const volStat =
+  const volumeStat =
     sessionVolume > 0 ? ` · ${sessionVolume.toLocaleString()}kg vol` : "";
-
-  const detail = entries
-    .map((entry) => {
-      const exVolume = entry.sets.reduce(
-        (sum, set) => sum + (parseWeight(set.weight) ?? 0) * (parseInt(set.reps) || 0),
-        0,
-      );
-      const hasPR = Object.keys(entry.prs || {}).length > 0;
-
-      const chips = entry.sets
-        .map(
-          (set, setIndex) =>
-            `<span class="history-set-chip">${setIndex + 1}: ${formatWeightLabel(set.weight)} × ${set.reps}</span>`,
-        )
-        .join("");
-
-      const volLine =
-        exVolume > 0
-          ? `<div class="history-entry-vol">${exVolume.toLocaleString()}kg vol${hasPR ? '<span class="history-pr-tag">✦ PR</span>' : ""}</div>`
-          : hasPR
-            ? `<div class="history-entry-vol"><span class="history-pr-tag">✦ PR</span></div>`
-            : "";
-
-      return `
-      <div class="history-entry">
-        <div class="history-entry-header">
-          <span class="history-entry-name">${entry.exerciseName}</span>
-          <span class="history-entry-cat">${entry.categoryLabel}</span>
-        </div>
-        <div class="history-entry-sets">${chips}</div>
-        ${volLine}
-      </div>`;
-    })
-    .join("");
+  const detail = entries.map(renderHistoryExercise).join("");
 
   return `
-    <div class="history-card fadein" data-history-idx="${historyIndex}">
-      <div class="history-card-meta">${sessionEntry.date} · ${sessionEntry.durationMinutes} min</div>
-      <div class="history-card-day">${dayName}</div>
-      <div class="history-card-stats">${entries.length} exercises · ${sessionEntry.totalSets} sets${volStat}</div>
+    <article class="history-card fadein" data-history-id="${sessionId}">
+      <div class="history-card-meta">${escapeHtml(sessionEntry.date)} · ${Number(sessionEntry.durationMinutes) || 0} min</div>
+      <div class="history-card-day">${escapeHtml(dayName)}</div>
+      <div class="history-card-stats">${entries.length} exercises · ${Number(sessionEntry.totalSets) || 0} sets${volumeStat}</div>
       ${prLine}
-      <div class="history-expand-hint">details</div>
-      <div class="history-card-detail">
+      <button
+        class="history-expand-hint"
+        type="button"
+        aria-expanded="false"
+        aria-controls="${detailId}"
+      >Details</button>
+      <div class="history-card-detail" id="${detailId}">
         ${detail}
-        <button class="history-delete-btn" type="button" data-history-delete="${historyIndex}">DELETE</button>
+        <button class="history-delete-btn" type="button" data-history-delete="${sessionId}">Delete session</button>
       </div>
+    </article>`;
+}
+
+function renderHistoryExercise(entry) {
+  const sets = Array.isArray(entry.sets) ? entry.sets : [];
+  const exerciseVolume = sets.reduce(
+    (sum, set) =>
+      sum + (parseWeight(set.weight) ?? 0) * (Number.parseInt(set.reps, 10) || 0),
+    0,
+  );
+  const hasPR = Object.keys(entry.prs || {}).length > 0;
+  const chips = sets
+    .map(
+      (set, index) =>
+        `<span class="history-set-chip">${index + 1}: ${escapeHtml(formatWeightLabel(set.weight))} × ${escapeHtml(set.reps)}</span>`,
+    )
+    .join("");
+  const volumeLine =
+    exerciseVolume > 0
+      ? `<div class="history-entry-vol">${exerciseVolume.toLocaleString()}kg vol${hasPR ? '<span class="history-pr-tag">✦ PR</span>' : ""}</div>`
+      : hasPR
+        ? '<div class="history-entry-vol"><span class="history-pr-tag">✦ PR</span></div>'
+        : "";
+
+  return `
+    <div class="history-entry">
+      <div class="history-entry-header">
+        <span class="history-entry-name">${escapeHtml(entry.exerciseName)}</span>
+        <span class="history-entry-cat">${escapeHtml(entry.categoryLabel)}</span>
+      </div>
+      <div class="history-entry-sets">${chips}</div>
+      ${volumeLine}
     </div>`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }

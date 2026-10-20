@@ -2,13 +2,10 @@ import { registerSW } from "virtual:pwa-register";
 
 import { DEFAULT_CONFIG } from "../config.js";
 import { DAYS } from "../data/workouts.js";
-import {
-  ONBOARDING_STEP_EXERCISE_LOG,
-  ONBOARDING_STEP_START,
-} from "./onboarding.js";
 import { fmtKg, markNudgeShown } from "./prs.js";
 import { getLatestCompletedTemplateEntry, loadHistory } from "./history.js";
 import { SPIN_STATE_READY } from "./spin.js";
+import { closeDialog, openDialog } from "../ui/dialog.js";
 
 let runtime = {
   queueOnboardingRefresh: () => {},
@@ -27,6 +24,8 @@ let runtime = {
   getSession: () => null,
   renderSlotMachine: () => {},
   resumeCurrentExercise: () => {},
+  pauseSession: () => null,
+  resumeSessionTiming: () => null,
 };
 
 let applyAppUpdateFn = null;
@@ -59,6 +58,11 @@ export function showScreen(id) {
   const nextScreen = document.getElementById(id);
   nextScreen?.classList.add("active");
   resetScreenScrollPosition(nextScreen);
+  const heading = nextScreen?.querySelector("[data-screen-heading]");
+  if (heading instanceof HTMLElement) {
+    heading.setAttribute("tabindex", "-1");
+    window.requestAnimationFrame(() => heading.focus({ preventScroll: true }));
+  }
   runtime.queueOnboardingRefresh();
 }
 
@@ -72,8 +76,7 @@ function openUpdateAppModal(applyUpdateFn) {
   applyAppUpdateFn = applyUpdateFn;
   const modal = document.getElementById("update-app-modal");
   if (!modal) return;
-  modal.classList.add("show");
-  modal.setAttribute("aria-hidden", "false");
+  openDialog(modal);
   runtime.queueOnboardingRefresh();
 }
 
@@ -81,8 +84,7 @@ export function closeUpdateAppModal() {
   applyAppUpdateFn = null;
   const modal = document.getElementById("update-app-modal");
   if (!modal) return;
-  modal.classList.remove("show");
-  modal.setAttribute("aria-hidden", "true");
+  closeDialog(modal);
   runtime.queueOnboardingRefresh();
 }
 
@@ -110,10 +112,10 @@ export function registerAppUpdatePrompt() {
       openUpdateAppModal(() => updateSW(true));
     },
     onOfflineReady() {
-      console.log("[GRIND] App ready to work offline.");
+      // The network status UI communicates offline readiness to the user.
     },
     onRegisteredSW(swUrl, registration) {
-      console.log("[GRIND] SW registered:", swUrl);
+      void swUrl;
       if (!registration) return;
 
       window.setInterval(
@@ -132,8 +134,7 @@ export function registerAppUpdatePrompt() {
 
 export function showPROverlay(prs, onDone) {
   const parts = [];
-  if (prs.weight)
-    parts.push(`+${fmtKg(prs.weight.new - prs.weight.prev)}KG MAX`);
+  if (prs.weight) parts.push(`+${fmtKg(prs.weight.new - prs.weight.prev)}KG MAX`);
   if (prs.volume) parts.push("VOLUME PR");
   if (parts.length === 0) {
     onDone();
@@ -149,11 +150,11 @@ export function showPROverlay(prs, onDone) {
   }
 
   text.textContent = parts.join(" · ");
-  overlay.classList.add("show");
+  openDialog(overlay);
   runtime.queueOnboardingRefresh();
 
   const handler = () => {
-    overlay.classList.remove("show");
+    closeDialog(overlay, false);
     runtime.queueOnboardingRefresh();
     onDone();
   };
@@ -177,6 +178,25 @@ export function discardSessionAndGoHome() {
   runtime.stopRest();
   runtime.clearSession();
   runtime.closeExitSessionModal();
+  renderDayPicker();
+  showScreen("screen-day-picker");
+}
+
+export function keepSessionAndGoHome() {
+  runtime.cancelPullGesture();
+  runtime.stopRest();
+  runtime.pauseSession();
+  runtime.closeExitSessionModal();
+  renderDayPicker();
+  showScreen("screen-day-picker");
+}
+
+export function showConfigurationError(message) {
+  const error = document.getElementById("configuration-error");
+  if (error) {
+    error.textContent = message;
+    error.hidden = false;
+  }
   renderDayPicker();
   showScreen("screen-day-picker");
 }
@@ -209,11 +229,7 @@ function formatDaysAgoLabel(entry) {
   if (!completedAt) return "—";
 
   const now = new Date();
-  const startOfToday = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  );
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfCompletedDay = new Date(
     completedAt.getFullYear(),
     completedAt.getMonth(),
@@ -221,9 +237,7 @@ function formatDaysAgoLabel(entry) {
   );
   const dayDiff = Math.max(
     0,
-    Math.floor(
-      (startOfToday.getTime() - startOfCompletedDay.getTime()) / DAY_IN_MS,
-    ),
+    Math.floor((startOfToday.getTime() - startOfCompletedDay.getTime()) / DAY_IN_MS),
   );
 
   if (dayDiff === 0) return "today";
@@ -260,7 +274,7 @@ function renderDayPickerCards() {
         historyEntries,
       );
       const lastWorkoutLabel = formatDaysAgoLabel(latestCompletedEntry);
-      const dayName = DAYS[templateId]?.name ?? `Full Body ${templateId}`;
+      const dayName = escapeHtml(DAYS[templateId]?.name ?? `Full Body ${templateId}`);
       let ctaLabel = "Start Workout";
 
       if (isDone) {
@@ -286,8 +300,11 @@ function renderDayPickerCards() {
       const lastWorkoutMarkup = `<div class="day-card-last-done">Last: ${lastWorkoutLabel}</div>`;
 
       return `
-      <div class="day-picker-card card fadein ${stateClass}"
-           data-day="${templateId}"${onboardingTarget}>
+      <button class="day-picker-card card fadein ${stateClass}"
+           type="button"
+           data-day="${escapeHtml(templateId)}"${onboardingTarget}
+           ${isDone || (isLocked && !isActiveSession) ? "disabled" : ""}
+           aria-label="${escapeHtml(ctaLabel)}: ${dayName}">
         <div class="day-card-top">
           <div class="day-card-top-copy">
             <div class="day-card-name">${dayName}</div>
@@ -295,9 +312,9 @@ function renderDayPickerCards() {
           </div>
         </div>
         <div class="day-card-actions">
-          <div class="day-card-cta">${ctaLabel}</div>
+          <div class="day-card-cta">${escapeHtml(ctaLabel)}</div>
         </div>
-      </div>`;
+      </button>`;
     })
     .join("");
 
@@ -308,6 +325,7 @@ export function resumeSession() {
   const session = runtime.loadSession();
   runtime.setSession(session);
   if (!session) return;
+  runtime.resumeSessionTiming();
 
   if (!session.pickedExercises?.length) runtime.pickAllExercises();
 
@@ -351,7 +369,7 @@ export async function renderDoneScreen({
     document.getElementById("done-prs-list").innerHTML = sessionPRs
       .map(
         (pr) =>
-          `<div class="done-pr-item">${pr.exerciseName} — ${
+          `<div class="done-pr-item">${escapeHtml(pr.exerciseName)} — ${
             pr.type === "weight"
               ? `+${fmtKg(pr.new - pr.prev)}kg max weight`
               : "volume PR"
@@ -368,11 +386,13 @@ export async function renderDoneScreen({
     document.getElementById("done-nudges-list").innerHTML = sessionNudges
       .map(
         (entry) =>
-          `<div class="done-pr-item">${entry.exerciseName} — Last 3× at ${entry.nudge.currentWeight}kg → try ${entry.nudge.suggestedWeight}kg?</div>`,
+          `<div class="done-pr-item">${escapeHtml(entry.exerciseName)} — Last 3× at ${entry.nudge.currentWeight}kg → try ${entry.nudge.suggestedWeight}kg?</div>`,
       )
       .join("");
     nudgesBlock.style.display = "block";
-    sessionNudges.forEach((entry) => markNudgeShown(entry.exerciseName));
+    sessionNudges.forEach((entry) =>
+      markNudgeShown(entry.exerciseId ?? entry.exerciseName),
+    );
   } else {
     nudgesBlock.style.display = "none";
   }
@@ -382,6 +402,7 @@ export async function renderDoneScreen({
 }
 
 export function fireConfetti() {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const canvas = document.getElementById("confetti-canvas");
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
@@ -389,14 +410,7 @@ export function fireConfetti() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 
-  const COLORS = [
-    "#F5C842",
-    "#00C8FF",
-    "#ffffff",
-    "#C8960C",
-    "#00EEFF",
-    "#B8D8F0",
-  ];
+  const COLORS = ["#F5C842", "#00C8FF", "#ffffff", "#C8960C", "#00EEFF", "#B8D8F0"];
   const COUNT = 90;
   const GRAVITY = 0.12;
   const DURATION = 3200;
@@ -458,4 +472,13 @@ export function fireConfetti() {
   }
 
   requestAnimationFrame(frame);
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }

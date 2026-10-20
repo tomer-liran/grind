@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/tomer-liran/grind/security/advisories/new
+    about: Privately report a vulnerability
+  - name: Usage and support
+    url: https://github.com/tomer-liran/grind/issues/new?template=question.yml
+    about: Ask a question or discuss a workout customization
